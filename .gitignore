@@ -1,0 +1,14 @@
+﻿# Java / Maven build output
+**/target/
+
+# IDE settings
+.idea/
+.vscode/
+*.iml
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+
+# Temporary local backup used while migrating TH1 history
+room-service-history-backup/

@@ -1,0 +1,513 @@
+{
+  "info": {
+    "_postman_id": "9ababdcc-df77-4e8d-8243-bc1b5859b33f",
+    "name": "TH2 - Retry and Safe Fallback",
+    "description": "Run the folders in order. Stop only Room Service before folder 02, then start Room Service again before folder 03.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58556409",
+    "_collection_link": "https://go.postman.co/collection/58556409-9ababdcc-df77-4e8d-8243-bc1b5859b33f?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "01 - Normal flow: Room Service is running",
+      "item": [
+        {
+          "name": "01.1 - Capture reservation count before normal create",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const reservations = pm.response.json();",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    pm.expect(reservations).to.be.an(\"array\");",
+                  "});",
+                  "",
+                  "pm.environment.set(\"count_before_normal\", String(reservations.length));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "01.2 - Create a confirmed reservation normally",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pad = (number) => String(number).padStart(2, \"0\");",
+                  "const toLocalDateTime = (date) => [",
+                  "    date.getFullYear(),",
+                  "    pad(date.getMonth() + 1),",
+                  "    pad(date.getDate())",
+                  "].join(\"-\") + \"T\" + [",
+                  "    pad(date.getHours()),",
+                  "    pad(date.getMinutes()),",
+                  "    pad(date.getSeconds())",
+                  "].join(\":\");",
+                  "",
+                  "const runId = Date.now().toString();",
+                  "const start = new Date(Date.now() + (30 * 24 + Math.floor(Math.random() * 500)) * 60 * 60 * 1000);",
+                  "start.setMinutes(Math.floor(Math.random() * 55));",
+                  "start.setSeconds(0, 0);",
+                  "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+                  "",
+                  "pm.environment.set(\"retry_run_id\", runId);",
+                  "pm.environment.set(\"normal_start_time\", toLocalDateTime(start));",
+                  "pm.environment.set(\"normal_end_time\", toLocalDateTime(end));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const reservation = pm.response.json();",
+                  "pm.test(\"Reservation is CONFIRMED\", function () {",
+                  "    pm.expect(reservation.status).to.eql(\"CONFIRMED\");",
+                  "});",
+                  "",
+                  "pm.test(\"Reservation belongs to the requested room\", function () {",
+                  "    pm.expect(reservation.roomId).to.eql(Number(pm.environment.get(\"available_room_id\")));",
+                  "});",
+                  "",
+                  "pm.environment.set(\"normal_reservation_id\", String(reservation.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{available_room_id}},\n  \"requesterId\": \"RETRY-NORMAL-{{retry_run_id}}\",\n  \"requesterName\": \"Postman Retry Test\",\n  \"purpose\": \"Normal flow before retry fallback test\",\n  \"startTime\": \"{{normal_start_time}}\",\n  \"endTime\": \"{{normal_end_time}}\",\n  \"attendeeCount\": {{attendee_count}}\n}"
+            },
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "01.3 - Verify normal create increased count by one",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const reservations = pm.response.json();",
+                  "const before = Number(pm.environment.get(\"count_before_normal\"));",
+                  "pm.test(\"Exactly one reservation was added\", function () {",
+                  "    pm.expect(reservations.length).to.eql(before + 1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Fallback: STOP ROOM SERVICE before running this folder",
+      "item": [
+        {
+          "name": "02.1 - Capture reservation count before unavailable-room request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Reservation Service is still reachable\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const reservations = pm.response.json();",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    pm.expect(reservations).to.be.an(\"array\");",
+                  "});",
+                  "",
+                  "pm.environment.set(\"count_before_fallback\", String(reservations.length));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02.2 - Create reservation while Room Service is unavailable: expect 503",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pad = (number) => String(number).padStart(2, \"0\");",
+                  "const toLocalDateTime = (date) => [",
+                  "    date.getFullYear(),",
+                  "    pad(date.getMonth() + 1),",
+                  "    pad(date.getDate())",
+                  "].join(\"-\") + \"T\" + [",
+                  "    pad(date.getHours()),",
+                  "    pad(date.getMinutes()),",
+                  "    pad(date.getSeconds())",
+                  "].join(\":\");",
+                  "",
+                  "const runId = pm.environment.get(\"retry_run_id\") || Date.now().toString();",
+                  "const start = new Date(Date.now() + (90 * 24 + Math.floor(Math.random() * 500)) * 60 * 60 * 1000);",
+                  "start.setMinutes(Math.floor(Math.random() * 55));",
+                  "start.setSeconds(0, 0);",
+                  "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+                  "",
+                  "pm.environment.set(\"retry_run_id\", runId);",
+                  "pm.environment.set(\"fallback_start_time\", toLocalDateTime(start));",
+                  "pm.environment.set(\"fallback_end_time\", toLocalDateTime(end));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 503 Service Unavailable\", function () {",
+                  "    pm.response.to.have.status(503);",
+                  "});",
+                  "",
+                  "const error = pm.response.json();",
+                  "pm.test(\"Error code identifies the unavailable Room Service\", function () {",
+                  "    pm.expect(error.code).to.eql(\"ROOM_SERVICE_UNAVAILABLE\");",
+                  "});",
+                  "",
+                  "pm.test(\"Error response has the expected status and path\", function () {",
+                  "    pm.expect(error.status).to.eql(503);",
+                  "    pm.expect(error.path).to.eql(\"/api/v1/reservations\");",
+                  "});",
+                  "",
+                  "pm.test(\"No confirmed reservation is returned\", function () {",
+                  "    pm.expect(error).to.not.have.property(\"id\");",
+                  "    pm.expect(error).to.not.have.property(\"roomCode\");",
+                  "});",
+                  "",
+                  "pm.environment.set(\"fallback_response_time_ms\", String(pm.response.responseTime));",
+                  "console.log(\"Fallback response time: \" + pm.response.responseTime + \" ms. Verify exactly 3 RoomClient call logs in the Reservation Service terminal.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{available_room_id}},\n  \"requesterId\": \"RETRY-FALLBACK-{{retry_run_id}}\",\n  \"requesterName\": \"Postman Retry Test\",\n  \"purpose\": \"Retry and safe fallback verification\",\n  \"startTime\": \"{{fallback_start_time}}\",\n  \"endTime\": \"{{fallback_end_time}}\",\n  \"attendeeCount\": {{attendee_count}}\n}"
+            },
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "02.3 - Verify fallback did not save a reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const reservations = pm.response.json();",
+                  "const before = Number(pm.environment.get(\"count_before_fallback\"));",
+                  "pm.test(\"No reservation was saved after fallback\", function () {",
+                  "    pm.expect(reservations.length).to.eql(before);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Recovery: START ROOM SERVICE before running this folder",
+      "item": [
+        {
+          "name": "03.1 - Resend the same fallback request: expect 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201 Created after Room Service recovery\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const reservation = pm.response.json();",
+                  "pm.test(\"Recovered request creates a CONFIRMED reservation\", function () {",
+                  "    pm.expect(reservation.status).to.eql(\"CONFIRMED\");",
+                  "    pm.expect(reservation.roomId).to.eql(Number(pm.environment.get(\"available_room_id\")));",
+                  "});",
+                  "",
+                  "pm.environment.set(\"recovered_reservation_id\", String(reservation.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{available_room_id}},\n  \"requesterId\": \"RETRY-FALLBACK-{{retry_run_id}}\",\n  \"requesterName\": \"Postman Retry Test\",\n  \"purpose\": \"Retry and safe fallback verification\",\n  \"startTime\": \"{{fallback_start_time}}\",\n  \"endTime\": \"{{fallback_end_time}}\",\n  \"attendeeCount\": {{attendee_count}}\n}"
+            },
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "03.2 - Verify recovery saved exactly one reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const reservations = pm.response.json();",
+                  "const before = Number(pm.environment.get(\"count_before_fallback\"));",
+                  "pm.test(\"Exactly one reservation was saved after recovery\", function () {",
+                  "    pm.expect(reservations.length).to.eql(before + 1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Business error remains immediate: room does not exist",
+      "item": [
+        {
+          "name": "04.1 - Unknown room id returns 404, not fallback 503",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const pad = (number) => String(number).padStart(2, \"0\");",
+                  "const toLocalDateTime = (date) => [",
+                  "    date.getFullYear(),",
+                  "    pad(date.getMonth() + 1),",
+                  "    pad(date.getDate())",
+                  "].join(\"-\") + \"T\" + [",
+                  "    pad(date.getHours()),",
+                  "    pad(date.getMinutes()),",
+                  "    pad(date.getSeconds())",
+                  "].join(\":\");",
+                  "",
+                  "const start = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);",
+                  "start.setMinutes(0, 0, 0);",
+                  "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+                  "pm.environment.set(\"unknown_room_start_time\", toLocalDateTime(start));",
+                  "pm.environment.set(\"unknown_room_end_time\", toLocalDateTime(end));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const error = pm.response.json();",
+                  "pm.test(\"Unknown room is a business response, not a technical fallback\", function () {",
+                  "    pm.expect(error.code).to.eql(\"ROOM_NOT_FOUND\");",
+                  "    pm.expect(error.status).to.eql(404);",
+                  "});",
+                  "",
+                  "console.log(\"Verify one RoomClient call log only. A 404 must not be retried.\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": {{unknown_room_id}},\n  \"requesterId\": \"RETRY-UNKNOWN-{{retry_run_id}}\",\n  \"requesterName\": \"Postman Retry Test\",\n  \"purpose\": \"Verify 404 is not retried\",\n  \"startTime\": \"{{unknown_room_start_time}}\",\n  \"endTime\": \"{{unknown_room_end_time}}\",\n  \"attendeeCount\": {{attendee_count}}\n}"
+            },
+            "url": {
+              "raw": "{{reservation_base_url}}/api/v1/reservations",
+              "host": [
+                "{{reservation_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "reservations"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

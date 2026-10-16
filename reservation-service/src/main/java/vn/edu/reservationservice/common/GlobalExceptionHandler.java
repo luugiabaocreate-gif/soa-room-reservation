@@ -3,15 +3,18 @@ package vn.edu.reservationservice.common;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import vn.edu.reservationservice.client.RoomNotFoundException;
 import vn.edu.reservationservice.client.RoomServiceUnavailableException;
 import vn.edu.reservationservice.reservation.InvalidReservationTimeException;
 import vn.edu.reservationservice.reservation.RoomScheduleConflictException;
 import vn.edu.reservationservice.reservation.RoomUnavailableException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +33,7 @@ public class GlobalExceptionHandler {
                 .toList();
 
         Map<String, Object> response = Map.of(
+                "timestamp", Instant.now().toString(),
                 "status", HttpStatus.BAD_REQUEST.value(),
                 "code", "VALIDATION_ERROR",
                 "message", "Dữ liệu đầu vào không hợp lệ",
@@ -107,6 +111,35 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleBadRequest(
+            IllegalArgumentException exception,
+            HttpServletRequest request
+    ) {
+        return buildError(
+                HttpStatus.BAD_REQUEST,
+                "BAD_REQUEST",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
+    @ExceptionHandler({
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleInvalidFormat(
+            Exception exception,
+            HttpServletRequest request
+    ) {
+        return buildError(
+                HttpStatus.BAD_REQUEST,
+                "INVALID_REQUEST_FORMAT",
+                "JSON hoặc query parameter không đúng định dạng",
+                request.getRequestURI()
+        );
+    }
+
     private ResponseEntity<Map<String, Object>> buildError(
             HttpStatus status,
             String code,
@@ -114,6 +147,7 @@ public class GlobalExceptionHandler {
             String path
     ) {
         Map<String, Object> response = Map.of(
+                "timestamp", Instant.now().toString(),
                 "status", status.value(),
                 "code", code,
                 "message", message,

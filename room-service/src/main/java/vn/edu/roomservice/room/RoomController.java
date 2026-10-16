@@ -1,5 +1,7 @@
 package vn.edu.roomservice.room;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/rooms")
+@Tag(name = "Room API v1", description = "Contract TH1 được giữ tương thích ngược")
 public class RoomController {
 
     private final RoomService roomService;
@@ -27,6 +30,7 @@ public class RoomController {
     }
 
     @GetMapping("/hello")
+    @Operation(summary = "Kiểm tra Room Service đang chạy")
     public Map<String, String> hello() {
         return Map.of(
                 "message", "Welcome to Room Service",
@@ -35,6 +39,7 @@ public class RoomController {
     }
 
     @GetMapping("/info")
+    @Operation(summary = "Xem thông tin Room Service")
     public Map<String, String> info() {
         return Map.of(
                 "service", "Room Service",
@@ -43,12 +48,18 @@ public class RoomController {
         );
     }
 
+    /**
+     * Contract TH1: vẫn trả raw List để Postman Collection TH1 và client cũ không bị phá.
+     * Query phân trang mới nằm ở GET /api/v2/rooms.
+     */
     @GetMapping
+    @Operation(summary = "Lấy toàn bộ phòng theo contract v1")
     public List<Room> getAllRooms() {
         return roomService.getAllRooms();
     }
 
     @GetMapping("/search")
+    @Operation(summary = "Search TH1 tương thích ngược, trả về danh sách không phân trang")
     public List<Room> searchRooms(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) RoomType type,
@@ -58,11 +69,13 @@ public class RoomController {
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Lấy một phòng theo id")
     public Room getRoomById(@PathVariable Long id) {
         return roomService.getRoomById(id);
     }
 
     @PostMapping
+    @Operation(summary = "Tạo phòng mới")
     public ResponseEntity<Room> createRoom(
             @Valid @RequestBody RoomRequest request
     ) {
@@ -74,6 +87,7 @@ public class RoomController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Cập nhật đầy đủ một phòng")
     public Room updateRoom(
             @PathVariable Long id,
             @Valid @RequestBody RoomRequest request
@@ -82,6 +96,7 @@ public class RoomController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Xóa một phòng")
     public ResponseEntity<Void> deleteRoom(
             @PathVariable Long id
     ) {

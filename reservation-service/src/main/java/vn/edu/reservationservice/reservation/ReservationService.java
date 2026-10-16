@@ -3,6 +3,7 @@ package vn.edu.reservationservice.reservation;
 import org.springframework.stereotype.Service;
 import vn.edu.reservationservice.client.RoomClient;
 import vn.edu.reservationservice.client.RoomResponse;
+import vn.edu.reservationservice.messaging.ReservationEventPublisher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +15,14 @@ public class ReservationService {
     private final List<Reservation> reservations = new ArrayList<>();
     private final AtomicLong nextId = new AtomicLong(0);
     private final RoomClient roomClient;
+    private final ReservationEventPublisher reservationEventPublisher;
 
-    public ReservationService(RoomClient roomClient) {
+    public ReservationService(
+            RoomClient roomClient,
+            ReservationEventPublisher reservationEventPublisher
+    ) {
         this.roomClient = roomClient;
+        this.reservationEventPublisher = reservationEventPublisher;
     }
 
     public synchronized Reservation createReservation(
@@ -44,6 +50,8 @@ public class ReservationService {
         );
 
         reservations.add(reservation);
+        reservationEventPublisher.publishReservationConfirmed(reservation);
+
         return reservation;
     }
 

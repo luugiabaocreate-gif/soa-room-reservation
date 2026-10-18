@@ -4,8 +4,8 @@ services:
     container_name: soa-rabbitmq
     hostname: soa-rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: soa
-      RABBITMQ_DEFAULT_PASS: soa-local-dev
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-soa}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-soa-local-dev}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -17,5 +17,41 @@ services:
       timeout: 5s
       retries: 5
 
+  room-db:
+    image: postgres:17-alpine
+    container_name: soa-room-db
+    environment:
+      POSTGRES_DB: ${ROOM_DB_NAME:-room_db}
+      POSTGRES_USER: ${ROOM_DB_USERNAME:-room_user}
+      POSTGRES_PASSWORD: ${ROOM_DB_PASSWORD:-room_local_dev}
+    ports:
+      - "${ROOM_DB_PORT:-5433}:5432"
+    volumes:
+      - room_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  reservation-db:
+    image: postgres:17-alpine
+    container_name: soa-reservation-db
+    environment:
+      POSTGRES_DB: ${RESERVATION_DB_NAME:-reservation_db}
+      POSTGRES_USER: ${RESERVATION_DB_USERNAME:-reservation_user}
+      POSTGRES_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation_local_dev}
+    ports:
+      - "${RESERVATION_DB_PORT:-5434}:5432"
+    volumes:
+      - reservation_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   rabbitmq_data:
+  room_db_data:
+  reservation_db_data:

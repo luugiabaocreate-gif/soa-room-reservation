@@ -1,67 +1,68 @@
 package vn.edu.reservationservice.reservation;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.edu.reservationservice.client.RoomClient;
 import vn.edu.reservationservice.client.RoomResponse;
 import vn.edu.reservationservice.messaging.ReservationEventPublisher;
+import vn.edu.reservationservice.reservation.persistence.ReservationEntity;
+import vn.edu.reservationservice.reservation.persistence.ReservationMapper;
+import vn.edu.reservationservice.reservation.persistence.ReservationPersistenceService;
+import vn.edu.reservationservice.reservation.persistence.ReservationRepository;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 
 @Service
 public class ReservationService {
 
     private static final int MAX_PAGE_SIZE = 50;
 
-    private final List<Reservation> reservations = new ArrayList<>();
-    private final AtomicLong nextId = new AtomicLong(0);
     private final RoomClient roomClient;
     private final ReservationEventPublisher reservationEventPublisher;
+    private final ReservationRepository reservationRepository;
+    private final ReservationPersistenceService reservationPersistenceService;
 
     public ReservationService(
             RoomClient roomClient,
-            ReservationEventPublisher reservationEventPublisher
+            ReservationEventPublisher reservationEventPublisher,
+            ReservationRepository reservationRepository,
+            ReservationPersistenceService reservationPersistenceService
     ) {
         this.roomClient = roomClient;
         this.reservationEventPublisher = reservationEventPublisher;
+        this.reservationRepository = reservationRepository;
+        this.reservationPersistenceService = reservationPersistenceService;
     }
 
-    public synchronized Reservation createReservation(
-            ReservationRequest request
-    ) {
+    public Reservation createReservation(ReservationRequest request) {
         validateTimeRange(request);
 
+        // Synchronous business verification. This is deliberately outside the local DB transaction.
         RoomResponse room = roomClient.getRoomById(request.roomId());
-
         validateRoomAvailability(room);
         validateCapacity(room, request.attendeeCount());
-        validateNoTimeConflict(request);
 
-        Reservation reservation = new Reservation(
-                nextId.incrementAndGet(),
-                room.id(),
-                room.code(),
-                request.requesterId().trim(),
-                request.requesterName().trim(),
-                request.purpose().trim(),
-                request.startTime(),
-                request.endTime(),
-                request.attendeeCount(),
-                ReservationStatus.CONFIRMED
+        // Transaction begins and ends inside ReservationPersistenceService for reservation_db only.
+        Reservation reservation = reservationPersistenceService.createConfirmedReservation(
+                request,
+                room
         );
 
-        reservations.add(reservation);
+        // This is after local persistence. It is not a distributed transaction/outbox yet.
         reservationEventPublisher.publishReservationConfirmed(reservation);
 
         return reservation;
     }
 
-    public synchronized ReservationPageResponse getReservations(
+    @Transactional(readOnly = true)
+    public ReservationPageResponse getReservations(
             Long roomId,
             String requesterId,
             ReservationStatus status,
@@ -74,64 +75,86 @@ public class ReservationService {
         validateQuery(roomId, from, to, page, size);
 
         SortOption sortOption = parseSort(sort);
-        List<Reservation> filteredReservations = filteredReservations(
-                roomId,
-                requesterId,
-                status,
-                from,
-                to
-        ).sorted(comparatorFor(sortOption)).toList();
-
-        long totalElements = filteredReservations.size();
-        int totalPages = totalElements == 0
-                ? 0
-                : (int) Math.ceil((double) totalElements / size);
-        long fromIndex = (long) page * size;
-        List<Reservation> content;
-
-        if (fromIndex >= totalElements) {
-            content = List.of();
-        } else {
-            int fromIndexAsInt = (int) fromIndex;
-            int toIndex = (int) Math.min(fromIndex + size, totalElements);
-            content = filteredReservations.subList(fromIndexAsInt, toIndex);
-        }
-
-        return new ReservationPageResponse(
-                content,
+        Pageable pageable = PageRequest.of(
                 page,
                 size,
-                totalElements,
-                totalPages,
+                Sort.by(sortOption.direction(), sortOption.field())
+        );
+
+        Page<ReservationEntity> reservations = reservationRepository.findAll(
+                buildSpecification(roomId, requesterId, status, from, to),
+                pageable
+        );
+
+        return new ReservationPageResponse(
+                reservations.getContent().stream()
+                        .map(ReservationMapper::toResponse)
+                        .toList(),
+                reservations.getNumber(),
+                reservations.getSize(),
+                reservations.getTotalElements(),
+                reservations.getTotalPages(),
                 sortOption.asResponseValue()
         );
     }
 
-    public synchronized List<Reservation> getAllReservations() {
-        return List.copyOf(reservations);
+    @Transactional(readOnly = true)
+    public List<Reservation> getAllReservations() {
+        return reservationRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+                .stream()
+                .map(ReservationMapper::toResponse)
+                .toList();
     }
 
-    private Stream<Reservation> filteredReservations(
+    /**
+     * Add predicates only when a filter is supplied. This keeps PostgreSQL from
+     * receiving an untyped null parameter in a lower(...) expression.
+     */
+    private Specification<ReservationEntity> buildSpecification(
             Long roomId,
             String requesterId,
             ReservationStatus status,
             LocalDateTime from,
             LocalDateTime to
     ) {
-        String normalizedRequesterId = requesterId == null
-                ? ""
-                : requesterId.trim().toLowerCase(Locale.ROOT);
+        Specification<ReservationEntity> specification = (root, query, criteriaBuilder) ->
+                criteriaBuilder.conjunction();
 
-        return reservations.stream()
-                .filter(reservation -> roomId == null || reservation.roomId().equals(roomId))
-                .filter(reservation -> normalizedRequesterId.isBlank()
-                        || reservation.requesterId().toLowerCase(Locale.ROOT)
-                        .contains(normalizedRequesterId))
-                .filter(reservation -> status == null || reservation.status() == status)
-                .filter(reservation -> from == null
-                        || reservation.endTime().isAfter(from))
-                .filter(reservation -> to == null
-                        || reservation.startTime().isBefore(to));
+        if (roomId != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("roomId"), roomId)
+            );
+        }
+
+        if (requesterId != null && !requesterId.isBlank()) {
+            String pattern = "%" + requesterId.trim().toLowerCase(Locale.ROOT) + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.like(
+                            criteriaBuilder.lower(root.<String>get("requesterId")),
+                            pattern
+                    )
+            );
+        }
+
+        if (status != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("status"), status)
+            );
+        }
+
+        if (from != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.greaterThan(root.<LocalDateTime>get("endTime"), from)
+            );
+        }
+
+        if (to != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.lessThan(root.<LocalDateTime>get("startTime"), to)
+            );
+        }
+
+        return specification;
     }
 
     private void validateQuery(
@@ -192,33 +215,10 @@ public class ReservationService {
             throw new IllegalArgumentException("sort direction chỉ có thể là asc hoặc desc");
         }
 
-        return new SortOption(field, direction);
-    }
-
-    private Comparator<Reservation> comparatorFor(SortOption sortOption) {
-        Comparator<Reservation> comparator = switch (sortOption.field()) {
-            case "id" -> Comparator.comparing(Reservation::id);
-            case "roomId" -> Comparator.comparing(Reservation::roomId);
-            case "roomCode" -> Comparator.comparing(
-                    Reservation::roomCode,
-                    String.CASE_INSENSITIVE_ORDER
-            );
-            case "requesterId" -> Comparator.comparing(
-                    Reservation::requesterId,
-                    String.CASE_INSENSITIVE_ORDER
-            );
-            case "startTime" -> Comparator.comparing(Reservation::startTime);
-            case "endTime" -> Comparator.comparing(Reservation::endTime);
-            case "attendeeCount" -> Comparator.comparing(Reservation::attendeeCount);
-            case "status" -> Comparator.comparing(reservation -> reservation.status().name());
-            default -> throw new IllegalArgumentException(
-                    "sort field không được hỗ trợ: " + sortOption.field()
-            );
-        };
-
-        return "desc".equals(sortOption.direction())
-                ? comparator.reversed()
-                : comparator;
+        return new SortOption(
+                field,
+                "desc".equals(direction) ? Sort.Direction.DESC : Sort.Direction.ASC
+        );
     }
 
     private void validateTimeRange(ReservationRequest request) {
@@ -245,22 +245,10 @@ public class ReservationService {
         }
     }
 
-    private void validateNoTimeConflict(ReservationRequest request) {
-        boolean hasConflict = reservations.stream()
-                .filter(reservation -> reservation.roomId().equals(request.roomId()))
-                .filter(reservation -> reservation.status() == ReservationStatus.CONFIRMED)
-                .anyMatch(reservation -> request.startTime().isBefore(reservation.endTime())
-                        && request.endTime().isAfter(reservation.startTime()));
-
-        if (hasConflict) {
-            throw new RoomScheduleConflictException(request.roomId());
-        }
-    }
-
-    private record SortOption(String field, String direction) {
+    private record SortOption(String field, Sort.Direction direction) {
 
         private String asResponseValue() {
-            return field + "," + direction;
+            return field + "," + direction.name().toLowerCase(Locale.ROOT);
         }
     }
 }

@@ -1,5 +1,12 @@
-﻿# Java / Maven build output
+# Java / Maven build output
 **/target/
+
+# Node.js build output
+**/node_modules/
+**/dist/
+
+# Environment-specific local configuration
+.env
 
 # IDE settings
 .idea/

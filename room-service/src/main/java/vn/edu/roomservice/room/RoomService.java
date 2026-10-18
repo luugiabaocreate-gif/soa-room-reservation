@@ -1,95 +1,40 @@
 package vn.edu.roomservice.room;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.edu.roomservice.persistence.RoomEntity;
+import vn.edu.roomservice.persistence.RoomMapper;
+import vn.edu.roomservice.persistence.RoomRepository;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 
 @Service
 public class RoomService {
 
     private static final int MAX_PAGE_SIZE = 50;
 
-    private final List<Room> rooms = new ArrayList<>();
+    private final RoomRepository roomRepository;
 
-    private final AtomicLong nextId = new AtomicLong(5);
-
-    public RoomService() {
-        rooms.add(new Room(
-                1L,
-                "A101",
-                "A",
-                1,
-                RoomType.THEORY,
-                60,
-                0,
-                0,
-                0,
-                RoomStatus.AVAILABLE
-        ));
-
-        rooms.add(new Room(
-                2L,
-                "A301",
-                "A",
-                3,
-                RoomType.LAB,
-                45,
-                45,
-                42,
-                3,
-                RoomStatus.AVAILABLE
-        ));
-
-        rooms.add(new Room(
-                3L,
-                "B201",
-                "B",
-                2,
-                RoomType.THEORY,
-                50,
-                0,
-                0,
-                0,
-                RoomStatus.MAINTENANCE
-        ));
-
-        rooms.add(new Room(
-                4L,
-                "B305",
-                "B",
-                3,
-                RoomType.LAB,
-                40,
-                40,
-                36,
-                4,
-                RoomStatus.LOCKED
-        ));
-
-        rooms.add(new Room(
-                5L,
-                "C102",
-                "C",
-                1,
-                RoomType.LAB,
-                30,
-                30,
-                0,
-                30,
-                RoomStatus.OUT_OF_SERVICE
-        ));
+    public RoomService(RoomRepository roomRepository) {
+        this.roomRepository = roomRepository;
     }
 
-    public synchronized List<Room> getAllRooms() {
-        return List.copyOf(rooms);
+    @Transactional(readOnly = true)
+    public List<Room> getAllRooms() {
+        return roomRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+                .stream()
+                .map(RoomMapper::toResponse)
+                .toList();
     }
 
-    public synchronized RoomPageResponse getRooms(
+    @Transactional(readOnly = true)
+    public RoomPageResponse getRooms(
             String keyword,
             RoomType type,
             RoomStatus status,
@@ -101,67 +46,59 @@ public class RoomService {
         validateQuery(page, size, minCapacity);
 
         SortOption sortOption = parseSort(sort);
-        List<Room> filteredRooms = filteredRooms(keyword, type, status, minCapacity)
-                .sorted(comparatorFor(sortOption))
-                .toList();
-
-        long totalElements = filteredRooms.size();
-        int totalPages = totalElements == 0
-                ? 0
-                : (int) Math.ceil((double) totalElements / size);
-
-        long fromIndex = (long) page * size;
-        List<Room> content;
-
-        if (fromIndex >= totalElements) {
-            content = List.of();
-        } else {
-            int from = (int) fromIndex;
-            int to = (int) Math.min(fromIndex + size, totalElements);
-            content = filteredRooms.subList(from, to);
-        }
-
-        return new RoomPageResponse(
-                content,
+        Pageable pageable = PageRequest.of(
                 page,
                 size,
-                totalElements,
-                totalPages,
+                Sort.by(sortOption.direction(), sortOption.field())
+        );
+
+        Page<RoomEntity> rooms = roomRepository.findAll(
+                buildSpecification(keyword, type, status, minCapacity),
+                pageable
+        );
+
+        return new RoomPageResponse(
+                rooms.getContent().stream().map(RoomMapper::toResponse).toList(),
+                rooms.getNumber(),
+                rooms.getSize(),
+                rooms.getTotalElements(),
+                rooms.getTotalPages(),
                 sortOption.asResponseValue()
         );
     }
 
-    public synchronized Room getRoomById(Long id) {
-        return rooms.stream()
-                .filter(room -> room.id().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new RoomNotFoundException(id));
+    @Transactional(readOnly = true)
+    public Room getRoomById(Long id) {
+        return RoomMapper.toResponse(findRoomEntity(id));
     }
 
-    public synchronized List<Room> searchRooms(
+    @Transactional(readOnly = true)
+    public List<Room> searchRooms(
             String keyword,
             RoomType type,
             RoomStatus status
     ) {
-        return filteredRooms(keyword, type, status, null).toList();
+        return roomRepository.findAll(
+                        buildSpecification(keyword, type, status, null),
+                        Pageable.unpaged()
+                )
+                .getContent()
+                .stream()
+                .map(RoomMapper::toResponse)
+                .toList();
     }
 
-    public synchronized Room createRoom(RoomRequest request) {
+    @Transactional
+    public Room createRoom(RoomRequest request) {
         String normalizedCode = normalizeCode(request.code());
 
-        boolean codeExists = rooms.stream()
-                .anyMatch(room -> room.code().equalsIgnoreCase(normalizedCode));
-
-        if (codeExists) {
+        if (roomRepository.existsByCodeIgnoreCase(normalizedCode)) {
             throw new DuplicateRoomCodeException(normalizedCode);
         }
 
         validateComputerNumbers(request);
 
-        Long newId = nextId.incrementAndGet();
-
-        Room newRoom = new Room(
-                newId,
+        RoomEntity entity = new RoomEntity(
                 normalizedCode,
                 request.building().trim(),
                 request.floor(),
@@ -170,33 +107,24 @@ public class RoomService {
                 request.totalComputers(),
                 request.workingComputers(),
                 request.brokenComputers(),
-                getStatusForCreate(request.status())
+                statusForCreate(request.status())
         );
 
-        rooms.add(newRoom);
-
-        return newRoom;
+        return RoomMapper.toResponse(roomRepository.save(entity));
     }
 
-    public synchronized Room updateRoom(
-            Long id,
-            RoomRequest request
-    ) {
-        Room existingRoom = getRoomById(id);
+    @Transactional
+    public Room updateRoom(Long id, RoomRequest request) {
+        RoomEntity entity = findRoomEntity(id);
         String normalizedCode = normalizeCode(request.code());
 
-        boolean codeExists = rooms.stream()
-                .anyMatch(room -> !room.id().equals(id)
-                        && room.code().equalsIgnoreCase(normalizedCode));
-
-        if (codeExists) {
+        if (roomRepository.existsByCodeIgnoreCaseAndIdNot(normalizedCode, id)) {
             throw new DuplicateRoomCodeException(normalizedCode);
         }
 
         validateComputerNumbers(request);
 
-        Room updatedRoom = new Room(
-                existingRoom.id(),
+        entity.update(
                 normalizedCode,
                 request.building().trim(),
                 request.floor(),
@@ -205,44 +133,73 @@ public class RoomService {
                 request.totalComputers(),
                 request.workingComputers(),
                 request.brokenComputers(),
-                getStatusForUpdate(request.status(), existingRoom.status())
+                statusForUpdate(request.status(), entity.getStatus())
         );
 
-        int roomIndex = rooms.indexOf(existingRoom);
-        rooms.set(roomIndex, updatedRoom);
-
-        return updatedRoom;
+        return RoomMapper.toResponse(roomRepository.save(entity));
     }
 
-    public synchronized void deleteRoom(Long id) {
-        Room room = getRoomById(id);
-        rooms.remove(room);
+    @Transactional
+    public void deleteRoom(Long id) {
+        roomRepository.delete(findRoomEntity(id));
     }
 
-    private Stream<Room> filteredRooms(
+    /**
+     * Build predicates only for parameters that the caller actually supplied.
+     * This avoids binding a null String parameter as PostgreSQL bytea in JPQL.
+     */
+    private Specification<RoomEntity> buildSpecification(
             String keyword,
             RoomType type,
             RoomStatus status,
             Integer minCapacity
     ) {
-        String normalizedKeyword = keyword == null
-                ? ""
-                : keyword.trim().toLowerCase(Locale.ROOT);
+        Specification<RoomEntity> specification = (root, query, criteriaBuilder) ->
+                criteriaBuilder.conjunction();
 
-        return rooms.stream()
-                .filter(room -> matchesKeyword(room, normalizedKeyword))
-                .filter(room -> type == null || room.type() == type)
-                .filter(room -> status == null || room.status() == status)
-                .filter(room -> minCapacity == null || room.capacity() >= minCapacity);
-    }
-
-    private boolean matchesKeyword(Room room, String keyword) {
-        if (keyword.isBlank()) {
-            return true;
+        if (keyword != null && !keyword.isBlank()) {
+            String pattern = "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.or(
+                            criteriaBuilder.like(
+                                    criteriaBuilder.lower(root.<String>get("code")),
+                                    pattern
+                            ),
+                            criteriaBuilder.like(
+                                    criteriaBuilder.lower(root.<String>get("building")),
+                                    pattern
+                            )
+                    )
+            );
         }
 
-        return room.code().toLowerCase(Locale.ROOT).contains(keyword)
-                || room.building().toLowerCase(Locale.ROOT).contains(keyword);
+        if (type != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("type"), type)
+            );
+        }
+
+        if (status != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.equal(root.get("status"), status)
+            );
+        }
+
+        if (minCapacity != null) {
+            specification = specification.and((root, query, criteriaBuilder) ->
+                    criteriaBuilder.greaterThanOrEqualTo(
+                            root.<Integer>get("capacity"),
+                            minCapacity
+                    )
+            );
+        }
+
+        return specification;
+    }
+
+    private RoomEntity findRoomEntity(Long id) {
+        return roomRepository.findById(id)
+                .orElseThrow(() -> new RoomNotFoundException(id));
     }
 
     private void validateQuery(int page, int size, Integer minCapacity) {
@@ -285,31 +242,14 @@ public class RoomService {
             throw new IllegalArgumentException("sort direction chỉ có thể là asc hoặc desc");
         }
 
-        return new SortOption(field, direction);
-    }
-
-    private Comparator<Room> comparatorFor(SortOption sortOption) {
-        Comparator<Room> comparator = switch (sortOption.field()) {
-            case "id" -> Comparator.comparing(Room::id);
-            case "code" -> Comparator.comparing(Room::code, String.CASE_INSENSITIVE_ORDER);
-            case "building" -> Comparator.comparing(Room::building, String.CASE_INSENSITIVE_ORDER);
-            case "floor" -> Comparator.comparing(Room::floor);
-            case "capacity" -> Comparator.comparing(Room::capacity);
-            case "type" -> Comparator.comparing(room -> room.type().name());
-            case "status" -> Comparator.comparing(room -> room.status().name());
-            default -> throw new IllegalArgumentException(
-                    "sort field không được hỗ trợ: " + sortOption.field()
-            );
-        };
-
-        return "desc".equals(sortOption.direction())
-                ? comparator.reversed()
-                : comparator;
+        return new SortOption(
+                field,
+                "desc".equals(direction) ? Sort.Direction.DESC : Sort.Direction.ASC
+        );
     }
 
     private void validateComputerNumbers(RoomRequest request) {
-        if (request.type() == RoomType.THEORY
-                && request.totalComputers() > 0) {
+        if (request.type() == RoomType.THEORY && request.totalComputers() > 0) {
             throw new IllegalArgumentException(
                     "Phòng THEORY không được khai báo máy thực hành"
             );
@@ -327,21 +267,21 @@ public class RoomService {
         return code.trim().toUpperCase(Locale.ROOT);
     }
 
-    private RoomStatus getStatusForCreate(RoomStatus status) {
+    private RoomStatus statusForCreate(RoomStatus status) {
         return status == null ? RoomStatus.AVAILABLE : status;
     }
 
-    private RoomStatus getStatusForUpdate(
+    private RoomStatus statusForUpdate(
             RoomStatus requestedStatus,
             RoomStatus currentStatus
     ) {
         return requestedStatus == null ? currentStatus : requestedStatus;
     }
 
-    private record SortOption(String field, String direction) {
+    private record SortOption(String field, Sort.Direction direction) {
 
         private String asResponseValue() {
-            return field + "," + direction;
+            return field + "," + direction.name().toLowerCase(Locale.ROOT);
         }
     }
 }

@@ -1,5 +1,8 @@
 import './style.css';
 
+const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL
+  ?? 'http://localhost:8083/api/v1';
+
 const ROOM_API_BASE_URL = import.meta.env.VITE_ROOM_API_BASE_URL
   ?? 'http://localhost:8080/api/v1';
 const RESERVATION_API_BASE_URL = import.meta.env.VITE_RESERVATION_API_BASE_URL
@@ -10,6 +13,10 @@ const RESERVATION_QUERY_API_BASE_URL = import.meta.env.VITE_RESERVATION_QUERY_AP
   ?? 'http://localhost:8081/api/v2';
 
 const state = {
+  auth: {
+    accessToken: null,
+    profile: null,
+  },
   rooms: {
     page: 0,
     size: 5,
@@ -23,6 +30,16 @@ const state = {
 };
 
 const elements = {
+  loginPanel: document.querySelector('#login-panel'),
+  loginForm: document.querySelector('#login-form'),
+  loginSubmit: document.querySelector('#login-submit'),
+  loginResult: document.querySelector('#login-result'),
+  authSession: document.querySelector('#auth-session'),
+  sessionName: document.querySelector('#session-name'),
+  sessionRole: document.querySelector('#session-role'),
+  sessionDescription: document.querySelector('#session-description'),
+  logoutButton: document.querySelector('#logout-button'),
+  protectedContent: document.querySelector('#protected-content'),
   notice: document.querySelector('#notice'),
   roomFilterForm: document.querySelector('#room-filter-form'),
   roomKeyword: document.querySelector('#room-keyword'),
@@ -40,6 +57,8 @@ const elements = {
   reservationForm: document.querySelector('#reservation-form'),
   reservationRoomId: document.querySelector('#reservation-room-id'),
   reservationSubmit: document.querySelector('#reservation-submit'),
+  reservationRequesterId: document.querySelector('#reservation-requester-id'),
+  reservationRequesterName: document.querySelector('#reservation-requester-name'),
   reservationResult: document.querySelector('#reservation-result'),
   reservationFilterForm: document.querySelector('#reservation-filter-form'),
   reservationFilterRoomId: document.querySelector('#reservation-filter-room-id'),
@@ -67,15 +86,127 @@ function buildUrl(baseUrl, path, params = {}) {
   return url;
 }
 
+function decodeJwtPayload(accessToken) {
+  const [, payload] = accessToken.split('.');
+  if (!payload) {
+    throw new Error('JWT không đúng định dạng');
+  }
+
+  const normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
+  const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=');
+  const json = decodeURIComponent(Array.from(atob(padded))
+    .map((character) => `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`)
+    .join(''));
+  const data = JSON.parse(json);
+
+  if (!data.sub || !Array.isArray(data.roles) || !data.roles.length) {
+    throw new Error('JWT thiếu thông tin danh tính hoặc role');
+  }
+
+  if (data.exp && data.exp * 1000 <= Date.now()) {
+    throw new Error('JWT đã hết hạn');
+  }
+
+  return {
+    username: data.sub,
+    requesterId: data.requesterId ?? '',
+    displayName: data.displayName ?? data.sub,
+    roles: data.roles,
+  };
+}
+
+function isStudent() {
+  return state.auth.profile?.roles.includes('STUDENT') ?? false;
+}
+
+function showLoginResult(type, title, lines) {
+  const lineHtml = lines.filter(Boolean)
+    .map((line) => `<p>${escapeHtml(line)}</p>`)
+    .join('');
+  elements.loginResult.className = `result-card ${type}`;
+  elements.loginResult.innerHTML = `<h3>${escapeHtml(title)}</h3>${lineHtml}`;
+}
+
+function hideLoginResult() {
+  elements.loginResult.className = 'result-card hidden';
+  elements.loginResult.innerHTML = '';
+}
+
+function applyAuthenticatedProfile() {
+  const profile = state.auth.profile;
+  elements.loginPanel.classList.add('hidden');
+  elements.authSession.classList.remove('hidden');
+  elements.protectedContent.classList.remove('hidden');
+  elements.sessionName.textContent = `${profile.displayName} (${profile.username})`;
+  elements.sessionRole.textContent = profile.roles.join(', ');
+  elements.sessionDescription.textContent = isStudent()
+    ? `Bạn chỉ có thể xem/tạo đăng ký của ${profile.requesterId}. Server vẫn tự kiểm tra quyền sở hữu.`
+    : 'Bạn đang có quyền nghiệp vụ theo role trong JWT. Mọi API vẫn kiểm tra quyền tại server.';
+
+  if (isStudent()) {
+    elements.reservationRequesterId.value = profile.requesterId;
+    elements.reservationRequesterName.value = profile.displayName;
+    elements.reservationRequesterId.readOnly = true;
+    elements.reservationRequesterName.readOnly = true;
+    elements.reservationFilterRequesterId.value = profile.requesterId;
+    elements.reservationFilterRequesterId.readOnly = true;
+  } else {
+    // ADMIN may enter an explicit requester when acting administratively.
+    // ROOM_MANAGER is still rejected by the server for reservation creation.
+    elements.reservationRequesterId.value = '';
+    elements.reservationRequesterName.value = '';
+    elements.reservationRequesterId.readOnly = false;
+    elements.reservationRequesterName.readOnly = false;
+    elements.reservationFilterRequesterId.value = '';
+    elements.reservationFilterRequesterId.readOnly = false;
+  }
+
+  state.rooms.page = 0;
+  state.reservations.page = 0;
+  Promise.all([loadRooms(), loadReservations()]);
+}
+
+function clearAuthenticatedProfile() {
+  sessionStorage.removeItem('soa.room-reservation.access-token');
+  state.auth.accessToken = null;
+  state.auth.profile = null;
+  elements.loginPanel.classList.remove('hidden');
+  elements.authSession.classList.add('hidden');
+  elements.protectedContent.classList.add('hidden');
+  hideLoginResult();
+  clearNotice();
+  hideReservationResult();
+  elements.loginForm.reset();
+}
+
+function restoreAuthenticatedProfile() {
+  const accessToken = sessionStorage.getItem('soa.room-reservation.access-token');
+  if (!accessToken) {
+    return;
+  }
+
+  try {
+    state.auth.accessToken = accessToken;
+    state.auth.profile = decodeJwtPayload(accessToken);
+    applyAuthenticatedProfile();
+  } catch {
+    clearAuthenticatedProfile();
+  }
+}
+
 async function requestJson(url, options = {}) {
   let response;
-  const { headers = {}, ...requestOptions } = options;
+  const { headers = {}, skipAuth = false, ...requestOptions } = options;
+  const authorization = !skipAuth && state.auth.accessToken
+    ? { Authorization: `Bearer ${state.auth.accessToken}` }
+    : {};
 
   try {
     response = await fetch(url, {
       ...requestOptions,
       headers: {
         Accept: 'application/json',
+        ...authorization,
         ...headers,
       },
     });
@@ -332,6 +463,44 @@ function readReservationPayload(form) {
 }
 
 function attachEventHandlers() {
+  elements.loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    hideLoginResult();
+
+    if (!elements.loginForm.reportValidity()) {
+      return;
+    }
+
+    const form = new FormData(elements.loginForm);
+    elements.loginSubmit.disabled = true;
+    elements.loginSubmit.textContent = 'Đang xác thực...';
+
+    try {
+      const token = await requestJson(buildUrl(AUTH_API_BASE_URL, '/auth/login'), {
+        method: 'POST',
+        skipAuth: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: String(form.get('username')).trim(),
+          password: String(form.get('password')),
+        }),
+      });
+      state.auth.accessToken = token.accessToken;
+      state.auth.profile = decodeJwtPayload(token.accessToken);
+      sessionStorage.setItem('soa.room-reservation.access-token', token.accessToken);
+      applyAuthenticatedProfile();
+    } catch (error) {
+      showLoginResult('error', 'Đăng nhập không thành công', [
+        formatError('Auth Service trả lỗi', error),
+      ]);
+    } finally {
+      elements.loginSubmit.disabled = false;
+      elements.loginSubmit.textContent = 'Đăng nhập';
+    }
+  });
+
+  elements.logoutButton.addEventListener('click', clearAuthenticatedProfile);
+
   elements.roomFilterForm.addEventListener('submit', (event) => {
     event.preventDefault();
     state.rooms.page = 0;
@@ -431,4 +600,4 @@ function attachEventHandlers() {
 }
 
 attachEventHandlers();
-Promise.all([loadRooms(), loadReservations()]);
+restoreAuthenticatedProfile();

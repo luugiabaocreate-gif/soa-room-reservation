@@ -1,19 +1,33 @@
 package vn.edu.reservationservice.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.SecurityRequirement;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class OpenApiConfig {
 
+    private static final String BEARER_AUTH = "bearerAuth";
+
     @Bean
     public OpenAPI reservationServiceOpenApi() {
         return new OpenAPI()
                 .info(new Info()
                         .title("Reservation Service API")
-                        .version("v1")
-                        .description("API tạo, tra cứu và quản lý đăng ký sử dụng phòng."));
+                        .version("v1 + v2, secured in TH5")
+                        .description("API tạo và tra cứu đăng ký. TH5 kiểm tra JWT, role và ownership "
+                                + "của requesterId trước khi trả hoặc tạo Reservation."))
+                .components(new Components().addSecuritySchemes(
+                        BEARER_AUTH,
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")
+                ))
+                .addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH));
     }
 }

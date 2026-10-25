@@ -1,21 +1,42 @@
-# Java / Maven build output
-**/target/
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
 
-# Node.js build output
-**/node_modules/
-**/dist/
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
 
-# Environment-specific local configuration
-.env
-
-# IDE settings
-.idea/
-.vscode/
+### IntelliJ IDEA ###
+*.iws
 *.iml
+*.ipr
+.idea/
 
-# Operating-system files
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Local runtime configuration and frontend packages ###
+.env
+node_modules/
+web-ui/dist/
+
+### OS ###
 .DS_Store
 Thumbs.db
-
-# Temporary local backup used while migrating TH1 history
-room-service-history-backup/

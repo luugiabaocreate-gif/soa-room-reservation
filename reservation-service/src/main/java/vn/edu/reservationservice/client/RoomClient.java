@@ -2,6 +2,7 @@ package vn.edu.reservationservice.client;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
@@ -18,9 +19,14 @@ public class RoomClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(RoomClient.class);
 
     private final RestClient roomRestClient;
+    private final ServiceTokenClient serviceTokenClient;
 
-    public RoomClient(RestClient roomRestClient) {
+    public RoomClient(
+            @Qualifier("roomRestClient") RestClient roomRestClient,
+            ServiceTokenClient serviceTokenClient
+    ) {
         this.roomRestClient = roomRestClient;
+        this.serviceTokenClient = serviceTokenClient;
     }
 
     @Retryable(
@@ -39,6 +45,8 @@ public class RoomClient {
         try {
             return roomRestClient.get()
                     .uri("/api/v1/rooms/{id}", roomId)
+                    // Use a machine token issued to reservation-service; never forward the user's JWT.
+                    .header("Authorization", "Bearer " + serviceTokenClient.roomServiceToken())
                     .retrieve()
                     .body(RoomResponse.class);
         } catch (HttpClientErrorException.NotFound exception) {

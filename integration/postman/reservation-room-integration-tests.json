@@ -1,0 +1,122 @@
+{
+  "info": {
+    "name": "TH6 — Reservation Room Integration",
+    "description": "Run in item order. Reservation Service is the consumer; Room Service is the provider. The successful create generates a dynamic future slot, then the overlap case reuses that exact slot.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "authBaseUrl", "value": "http://localhost:8083/api/v1"},
+    {"key": "roomBaseUrl", "value": "http://localhost:8080/api/v1"},
+    {"key": "reservationBaseUrl", "value": "http://localhost:8081/api/v1"},
+    {"key": "student01Token", "value": ""},
+    {"key": "roomId", "value": "1"},
+    {"key": "integrationStart", "value": ""},
+    {"key": "integrationEnd", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "I01 Login Student01",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"username\": \"student01\",\n  \"password\": \"DemoPassword123!\"\n}"},
+        "url": "{{authBaseUrl}}/auth/login"
+      },
+      "event": [{"listen": "test", "script": {"exec": [
+        "pm.test('HTTP 200 login', () => pm.response.to.have.status(200));",
+        "const body = pm.response.json();",
+        "pm.expect(body.tokenType).to.eql('Bearer');",
+        "pm.collectionVariables.set('student01Token', body.accessToken);"
+      ]}}]
+    },
+    {
+      "name": "I02 Create confirmed Reservation through Room Provider",
+      "event": [
+        {"listen": "prerequest", "script": {"exec": [
+          "const start = new Date(Date.now() + 48 * 60 * 60 * 1000 + Math.floor(Math.random() * 120) * 60 * 1000);",
+          "start.setSeconds(0, 0);",
+          "const end = new Date(start.getTime() + 60 * 60 * 1000);",
+          "pm.collectionVariables.set('integrationStart', start.toISOString().slice(0, 19));",
+          "pm.collectionVariables.set('integrationEnd', end.toISOString().slice(0, 19));"
+        ]}},
+        {"listen": "test", "script": {"exec": [
+          "pm.test('HTTP 201 created', () => pm.response.to.have.status(201));",
+          "const body = pm.response.json();",
+          "pm.expect(body.status).to.eql('CONFIRMED');",
+          "pm.expect(body.requesterId).to.eql('STUDENT-001');",
+          "pm.expect(body.roomId).to.eql(Number(pm.collectionVariables.get('roomId')));"
+        ]}}
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{student01Token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"roomId\": {{roomId}},\n  \"requesterId\": \"STUDENT-002\",\n  \"requesterName\": \"Spoofed name\",\n  \"purpose\": \"TH6 Reservation Room integration\",\n  \"startTime\": \"{{integrationStart}}\",\n  \"endTime\": \"{{integrationEnd}}\",\n  \"attendeeCount\": 20\n}"},
+        "url": "{{reservationBaseUrl}}/reservations"
+      }
+    },
+    {
+      "name": "I03 Provider Room not found returns controlled 404",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{student01Token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"roomId\": 999999,\n  \"requesterId\": \"STUDENT-002\",\n  \"requesterName\": \"Spoofed name\",\n  \"purpose\": \"TH6 missing Room provider test\",\n  \"startTime\": \"{{integrationStart}}\",\n  \"endTime\": \"{{integrationEnd}}\",\n  \"attendeeCount\": 20\n}"},
+        "url": "{{reservationBaseUrl}}/reservations"
+      },
+      "event": [{"listen": "test", "script": {"exec": [
+        "pm.test('HTTP 404 room not found', () => pm.response.to.have.status(404));",
+        "pm.expect(pm.response.json().code).to.eql('ROOM_NOT_FOUND');"
+      ]}}]
+    },
+    {
+      "name": "I04 Provider Room unavailable returns controlled 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{student01Token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"roomId\": 3,\n  \"requesterId\": \"STUDENT-002\",\n  \"requesterName\": \"Spoofed name\",\n  \"purpose\": \"TH6 unavailable Room provider test\",\n  \"startTime\": \"{{integrationStart}}\",\n  \"endTime\": \"{{integrationEnd}}\",\n  \"attendeeCount\": 20\n}"},
+        "url": "{{reservationBaseUrl}}/reservations"
+      },
+      "event": [{"listen": "test", "script": {"exec": [
+        "pm.test('HTTP 409 room unavailable', () => pm.response.to.have.status(409));",
+        "pm.expect(pm.response.json().code).to.eql('ROOM_NOT_AVAILABLE');"
+      ]}}]
+    },
+    {
+      "name": "I05 Duplicate slot returns 409 conflict",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Authorization", "value": "Bearer {{student01Token}}"},
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {"mode": "raw", "raw": "{\n  \"roomId\": {{roomId}},\n  \"requesterId\": \"STUDENT-002\",\n  \"requesterName\": \"Spoofed name\",\n  \"purpose\": \"TH6 duplicate slot test\",\n  \"startTime\": \"{{integrationStart}}\",\n  \"endTime\": \"{{integrationEnd}}\",\n  \"attendeeCount\": 20\n}"},
+        "url": "{{reservationBaseUrl}}/reservations"
+      },
+      "event": [{"listen": "test", "script": {"exec": [
+        "pm.test('HTTP 409 schedule conflict', () => pm.response.to.have.status(409));",
+        "pm.expect(pm.response.json().code).to.eql('ROOM_SCHEDULE_CONFLICT');"
+      ]}}]
+    },
+    {
+      "name": "I06 No user token returns 401 before integration",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "body": {"mode": "raw", "raw": "{\n  \"roomId\": {{roomId}},\n  \"requesterId\": \"STUDENT-001\",\n  \"requesterName\": \"Student One\",\n  \"purpose\": \"TH6 no token test\",\n  \"startTime\": \"{{integrationStart}}\",\n  \"endTime\": \"{{integrationEnd}}\",\n  \"attendeeCount\": 20\n}"},
+        "url": "{{reservationBaseUrl}}/reservations"
+      },
+      "event": [{"listen": "test", "script": {"exec": [
+        "pm.test('HTTP 401 without token', () => pm.response.to.have.status(401));",
+        "pm.expect(pm.response.json().code).to.eql('AUTHENTICATION_REQUIRED');"
+      ]}}]
+    }
+  ]
+}

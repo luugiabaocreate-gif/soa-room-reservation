@@ -35,6 +35,7 @@ Nói ngắn gọn: **Room quản lý phòng; Reservation quản lý lịch đăn
 | **TH3** | API v2 filter/sort/pagination, Swagger/OpenAPI, CORS, Web UI | UI lấy dữ liệu qua API thế nào, không đọc database ra sao? |
 | **TH4** | PostgreSQL/JPA, DB riêng theo service, local transaction, persistence after restart | Vì sao `room_id` không có foreign key vật lý sang `room_db`? |
 | **TH5** | Auth Service, BCrypt, JWT 15 phút, RBAC, ownership, service token | Khác nhau giữa 401/403? Vì sao Student không giả requesterId? Vì sao service không forward token người dùng? |
+| **TH6** | Consumer Reservation tích hợp Room Provider thành flow xác nhận Reservation xuyên service; contract, sequence diagram, error/timeout tests | Consumer gọi Provider nào? Dữ liệu nào được trust? Khi Provider 404/409/503 thì Reservation có được ghi không? |
 
 ---
 
@@ -665,6 +666,16 @@ git remote -v
 - [ ] Không merge vào `main` trước khi review evidence/PR.
 
 ---
+
+## TH6 — Consumer/Provider integration
+
+TH6 dùng lại nghiệp vụ có thật thay vì dựng service minh họa không liên quan: `Reservation Service` là Consumer, `Room Service` là Provider. Consumer dùng machine JWT để lookup Room, xử lý Room missing/unavailable, kiểm conflict rồi mới commit `reservation_db`; Audit là consumer bất đồng bộ sau commit.
+
+- [`integration/integration-design.md`](integration/integration-design.md) — phạm vi, Consumer/Provider, error/retry/consistency.
+- [`integration/api-contract.md`](integration/api-contract.md) — REST contract và HTTP error semantics.
+- [`integration/sequence-diagram/reservation-room-confirmation.png`](integration/sequence-diagram/reservation-room-confirmation.png) — sequence diagram.
+- [`integration/postman/reservation-room-integration-tests.json`](integration/postman/reservation-room-integration-tests.json) — TH6 integration tests.
+- [`integration/test-results.md`](integration/test-results.md) — test procedure and result-recording rule.
 
 ## Tài liệu liên quan
 

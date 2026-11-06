@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    actor Student
+    participant RES as Reservation Service :8081
+    participant AUTH as Auth Service :8083
+    participant ROOM as Room Service :8080
+    participant RDB as reservation_db
+    participant MQ as RabbitMQ
+    participant AUDIT as Audit Service :8082
+
+    Student->>RES: POST /reservations + user JWT
+    RES->>RES: Verify JWT, role and ownership
+    RES->>AUTH: POST /auth/service-token + client credential
+    AUTH-->>RES: machine JWT audience=room-service
+    RES->>ROOM: GET /rooms/{roomId} + machine JWT
+
+    alt Room missing
+        ROOM-->>RES: 404
+        RES-->>Student: 404 ROOM_NOT_FOUND
+    else Room unavailable / capacity insufficient
+        ROOM-->>RES: RoomResponse
+        RES-->>Student: 409 ROOM_NOT_AVAILABLE
+    else Room valid
+        ROOM-->>RES: RoomResponse AVAILABLE
+        RES->>RES: Check time range and overlap
+        alt Overlapping confirmed slot
+            RES-->>Student: 409 ROOM_SCHEDULE_CONFLICT
+        else Slot available
+            RES->>RDB: Local transaction: save CONFIRMED
+            RDB-->>RES: Reservation committed
+            RES->>MQ: publish reservation.confirmed
+            RES-->>Student: 201 Created
+            MQ-->>AUDIT: reservation.confirmed
+            AUDIT-->>AUDIT: AUDIT EVENT RECEIVED
+        end
+    end

@@ -1,0 +1,284 @@
+{
+  "info": {
+    "name": "SOA Room Reservation — TH5 Security",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "authBaseUrl",
+      "value": "http://localhost:8083/api/v1"
+    },
+    {
+      "key": "roomBaseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "roomQueryBaseUrl",
+      "value": "http://localhost:8080/api/v2"
+    },
+    {
+      "key": "reservationBaseUrl",
+      "value": "http://localhost:8081/api/v1"
+    },
+    {
+      "key": "reservationQueryBaseUrl",
+      "value": "http://localhost:8081/api/v2"
+    },
+    {
+      "key": "student01Token",
+      "value": ""
+    },
+    {
+      "key": "student02Token",
+      "value": ""
+    },
+    {
+      "key": "managerToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Login student01",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"student01\",\n  \"password\": \"DemoPassword123!\"\n}"
+        },
+        "url": "{{authBaseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+              "const body = pm.response.json();",
+              "pm.expect(body.tokenType).to.eql('Bearer');",
+              "pm.collectionVariables.set('student01Token', body.accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login student02",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"student02\",\n  \"password\": \"DemoPassword123!\"\n}"
+        },
+        "url": "{{authBaseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('student02Token', pm.response.json().accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Login room manager",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"roommanager01\",\n  \"password\": \"DemoPassword123!\"\n}"
+        },
+        "url": "{{authBaseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('managerToken', pm.response.json().accessToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Wrong password is generic 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"student01\",\"password\":\"wrong\"}"
+        },
+        "url": "{{authBaseUrl}}/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+              "pm.expect(pm.response.json().code).to.eql('INVALID_CREDENTIALS');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Protected Room API without token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{roomQueryBaseUrl}}/rooms?page=0&size=5&sort=id,asc"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Student reads rooms",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student01Token}}"
+          }
+        ],
+        "url": "{{roomQueryBaseUrl}}/rooms?page=0&size=5&sort=id,asc"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Student cannot create Room",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student01Token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"code\":\"SEC999\",\"building\":\"S\",\"floor\":9,\"type\":\"THEORY\",\"capacity\":10,\"totalComputers\":0,\"workingComputers\":0,\"brokenComputers\":0,\"status\":\"AVAILABLE\"}"
+        },
+        "url": "{{roomBaseUrl}}/rooms"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Student create Reservation: spoofed requester is overwritten",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student01Token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"roomId\":2,\"requesterId\":\"STUDENT-002\",\"requesterName\":\"Spoofed name\",\"purpose\":\"TH5 owner check\",\"startTime\":\"2026-12-01T09:00:00\",\"endTime\":\"2026-12-01T11:00:00\",\"attendeeCount\":20}"
+        },
+        "url": "{{reservationBaseUrl}}/reservations"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+              "pm.expect(pm.response.json().requesterId).to.eql('STUDENT-001');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Student cannot query other owner",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{student01Token}}"
+          }
+        ],
+        "url": "{{reservationQueryBaseUrl}}/reservations?requesterId=STUDENT-002&page=0&size=20&sort=id,asc"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+              "pm.response.json().content.forEach(function (reservation) { pm.expect(reservation.requesterId).to.eql('STUDENT-001'); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

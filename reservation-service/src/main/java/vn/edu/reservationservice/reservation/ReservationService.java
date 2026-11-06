@@ -14,6 +14,7 @@ import vn.edu.reservationservice.reservation.persistence.ReservationEntity;
 import vn.edu.reservationservice.reservation.persistence.ReservationMapper;
 import vn.edu.reservationservice.reservation.persistence.ReservationPersistenceService;
 import vn.edu.reservationservice.reservation.persistence.ReservationRepository;
+import vn.edu.reservationservice.security.ReservationAccessPolicy;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,20 +29,24 @@ public class ReservationService {
     private final ReservationEventPublisher reservationEventPublisher;
     private final ReservationRepository reservationRepository;
     private final ReservationPersistenceService reservationPersistenceService;
+    private final ReservationAccessPolicy reservationAccessPolicy;
 
     public ReservationService(
             RoomClient roomClient,
             ReservationEventPublisher reservationEventPublisher,
             ReservationRepository reservationRepository,
-            ReservationPersistenceService reservationPersistenceService
+            ReservationPersistenceService reservationPersistenceService,
+            ReservationAccessPolicy reservationAccessPolicy
     ) {
         this.roomClient = roomClient;
         this.reservationEventPublisher = reservationEventPublisher;
         this.reservationRepository = reservationRepository;
         this.reservationPersistenceService = reservationPersistenceService;
+        this.reservationAccessPolicy = reservationAccessPolicy;
     }
 
     public Reservation createReservation(ReservationRequest request) {
+        request = reservationAccessPolicy.enforceCreateOwnership(request);
         validateTimeRange(request);
 
         // Synchronous business verification. This is deliberately outside the local DB transaction.
@@ -73,6 +78,7 @@ public class ReservationService {
             String sort
     ) {
         validateQuery(roomId, from, to, page, size);
+        requesterId = reservationAccessPolicy.effectiveRequesterIdForRead(requesterId);
 
         SortOption sortOption = parseSort(sort);
         Pageable pageable = PageRequest.of(
@@ -100,7 +106,12 @@ public class ReservationService {
 
     @Transactional(readOnly = true)
     public List<Reservation> getAllReservations() {
-        return reservationRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+        String requesterId = reservationAccessPolicy.effectiveRequesterIdForRead(null);
+        return reservationRepository.findAll(
+                        buildSpecification(null, requesterId, null, null, null),
+                        Pageable.unpaged()
+                )
+                .getContent()
                 .stream()
                 .map(ReservationMapper::toResponse)
                 .toList();

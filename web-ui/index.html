@@ -20,12 +20,45 @@
         </p>
       </div>
       <div class="service-links" aria-label="Liên kết dịch vụ kỹ thuật">
+        <a href="http://localhost:8083/swagger-ui.html" target="_blank" rel="noreferrer">Auth API Docs</a>
         <a href="http://localhost:8080/swagger-ui.html" target="_blank" rel="noreferrer">Room API Docs</a>
         <a href="http://localhost:8081/swagger-ui.html" target="_blank" rel="noreferrer">Reservation API Docs</a>
       </div>
     </header>
 
     <main>
+      <section id="login-panel" class="panel login-panel" aria-labelledby="login-title">
+        <div>
+          <p class="section-kicker">00 · AUTH SERVICE</p>
+          <h2 id="login-title">Đăng nhập để sử dụng hệ thống</h2>
+          <p class="section-intro">Room và Reservation API được bảo vệ bằng Bearer JWT. Dùng tài khoản demo local từ tài liệu TH5.</p>
+        </div>
+        <form id="login-form" class="login-form">
+          <label>
+            Tên đăng nhập
+            <input id="login-username" name="username" type="text" autocomplete="username" required placeholder="Ví dụ: student01" />
+          </label>
+          <label>
+            Mật khẩu
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="DemoPassword123!" />
+          </label>
+          <div class="form-actions align-end">
+            <button id="login-submit" class="button primary" type="submit">Đăng nhập</button>
+          </div>
+        </form>
+        <div id="login-result" class="result-card hidden" aria-live="polite"></div>
+      </section>
+
+      <section id="auth-session" class="session-card hidden" aria-live="polite">
+        <div>
+          <strong id="session-name"></strong>
+          <span id="session-role" class="summary-badge"></span>
+          <p id="session-description"></p>
+        </div>
+        <button id="logout-button" class="button secondary" type="button">Đăng xuất</button>
+      </section>
+
+      <div id="protected-content" class="protected-content hidden">
       <section id="notice" class="notice hidden" aria-live="polite"></section>
 
       <section class="panel" aria-labelledby="rooms-title">
@@ -121,11 +154,11 @@
           </label>
           <label>
             Mã người đăng ký
-            <input name="requesterId" type="text" required maxlength="100" placeholder="Ví dụ: SV001" />
+            <input id="reservation-requester-id" name="requesterId" type="text" required maxlength="100" readonly />
           </label>
           <label>
             Tên người đăng ký
-            <input name="requesterName" type="text" required maxlength="150" placeholder="Ví dụ: Nguyễn Văn A" />
+            <input id="reservation-requester-name" name="requesterName" type="text" required maxlength="150" readonly />
           </label>
           <label>
             Mục đích sử dụng
@@ -168,7 +201,7 @@
           </label>
           <label>
             Mã người đăng ký
-            <input id="reservation-filter-requester-id" name="requesterId" type="search" placeholder="Ví dụ: SV001" />
+            <input id="reservation-filter-requester-id" name="requesterId" type="search" placeholder="Theo JWT của Student" />
           </label>
           <label>
             Trạng thái
@@ -214,6 +247,7 @@
           <button id="reservation-next" class="button secondary" type="button">Trang sau →</button>
         </div>
       </section>
+      </div>
     </main>
 
     <footer>

@@ -51,7 +51,25 @@ services:
       timeout: 5s
       retries: 5
 
+  auth-db:
+    image: postgres:17-alpine
+    container_name: soa-auth-db
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME:-auth_db}
+      POSTGRES_USER: ${AUTH_DB_USERNAME:-auth_user}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth_local_dev}
+    ports:
+      - "${AUTH_DB_PORT:-5435}:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   rabbitmq_data:
   room_db_data:
   reservation_db_data:
+  auth_db_data:

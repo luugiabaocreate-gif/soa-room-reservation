@@ -1,46 +1,52 @@
-# TH5 — Security test checklist
+# TH5 — Security regression checklist
 
-## Chuẩn bị
+## Runtime baseline
 
 - Docker `rabbitmq`, `room-db`, `reservation-db`, `auth-db` healthy.
-- Auth Service port `8083`, Room `8080`, Reservation `8081`, Audit `8082`, Web UI `5173` đang chạy.
-- Dùng Postman hoặc PowerShell. Lưu JWT vào biến `student01Token`, `student02Token`, `managerToken`, `adminToken`.
+- Auth `8083`, Room `8080`, Reservation `8081`, Audit `8082` running.
+- Không hiển thị `.env`, JWT secret, service secret, full JWT hoặc password hash.
 
-## Login request
+## Test artifacts
 
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
+```text
+postman/TH5_Security.postman_collection.json
+    Collection gốc 01–09, giữ nguyên để tái hiện KT1.
 
-{"username":"student01","password":"DemoPassword123!"}
+postman/TH5_Security_Extended_Evidence.postman_collection.json
+    Regression mở rộng: thêm Manager create Room 201, Reservation time động,
+    Student02 isolation.
+
+security-design/test-results.md
+    Báo cáo runtime S01–S13 đã đạt.
 ```
 
-Kỳ vọng HTTP 200, `accessToken`, `tokenType=Bearer`, `expiresIn=900`.
+## Chạy theo thứ tự
 
-## Required evidence
+1. Login Student01 → lưu `student01Token`.
+2. Login sai → 401 `INVALID_CREDENTIALS`.
+3. Room không token → 401 `AUTHENTICATION_REQUIRED`.
+4. Student01 đọc Room → 200.
+5. Student01 POST Room → 403 `ACCESS_DENIED`.
+6. Login Room Manager → POST Room code unique → 201.
+7. Student01 create Reservation với body `requesterId=STUDENT-002` → 201 nhưng response owner là `STUDENT-001`.
+8. Student01 query `requesterId=STUDENT-002` → 200 nhưng content chỉ Student01 hoặc rỗng.
+9. Login Student02 → query Reservation → 200 nhưng không có record Student01.
+10. Sau Reservation 201, kiểm Audit terminal nhận `reservation.confirmed`.
+11. Chỉ sau khi hiểu từng response mới chạy Collection Runner để regression lặp lại.
 
-| # | Request | Account/token | Expected |
-|---:|---|---|---|
-| 1 | POST `/api/v1/auth/login` đúng password | student01 | 200, JWT |
-| 2 | POST login sai password | student01 | 401 `INVALID_CREDENTIALS`; không tiết lộ user có tồn tại |
-| 3 | GET `/api/v2/rooms` không token | none | 401 |
-| 4 | GET `/api/v2/rooms` với JWT sai | invalid | 401 |
-| 5 | GET `/api/v2/rooms` | student01 | 200 |
-| 6 | POST `/api/v1/rooms` | student01 | 403 |
-| 7 | POST/PUT Room | roommanager01 hoặc admin01 | 201/200 hợp lệ |
-| 8 | POST Reservation, body cố đặt requesterId `STUDENT-002` | student01 | 201 nhưng row/response phải có requesterId `STUDENT-001` |
-| 9 | GET `/api/v2/reservations?requesterId=STUDENT-002` | student01 | 200 nhưng chỉ content của `STUDENT-001` |
-| 10 | Cùng request #9 | roommanager01/admin01 | 200
-| 11 | POST Reservation with `requesterId=STUDENT-002` | student01 | Response/DB must be `STUDENT-001`; browser value is not trusted |
-| 12 | GET Reservation v1/v2 | student02 | Must not show `STUDENT-001` data |
-| 13 | POST login with disabled/nonexistent account | unknown | 401 generic `INVALID_CREDENTIALS` |
-| 14 | Create Reservation | student01 | Room lookup must still work; Reservation Service uses machine token, not forwarded user token |
+## HTTP semantics cần xác nhận
 
-## Screenshot/log to preserve
+```text
+200 OK       Request được xử lý thành công trong phạm vi quyền hiện có.
+201 Created  Server đã tạo resource mới.
+401          Caller chưa được xác thực: thiếu/sai/hết hạn JWT hoặc credential sai.
+403          JWT hợp lệ nhưng role/policy không cho action.
+404          Route/resource không tồn tại; kiểm endpoint hoặc room id.
+409          Conflict nghiệp vụ; đổi Room code hoặc time slot.
+```
 
-1. Login success and response excludes password/hash.
-2. 401 no token; 401 malformed token; 403 incorrect role.
-3. Student01 denied/filtered from Student02 resource.
-4. Room manager allowed to mutate Room (use a harmless test Room or update/revert).
-5. `AUDIT EVENT RECEIVED` after authenticated Reservation creation.
-6. Explain service-token path shown in `docs/th5-security-design.md`.
+## Evidence cần giữ
+
+- Video source → variables/Base URL → từng request/response → Audit terminal → Runner.
+- `security-design/test-results.md` với kết luận **Đạt** từng mục.
+- Không bắt buộc screenshot; terminal log/video là evidence chính.

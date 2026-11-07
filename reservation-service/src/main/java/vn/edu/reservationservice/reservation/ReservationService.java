@@ -66,6 +66,17 @@ public class ReservationService {
         return reservation;
     }
 
+    public Reservation cancelReservation(Long reservationId) {
+        Reservation existingReservation = reservationPersistenceService.getReservation(reservationId);
+        reservationAccessPolicy.assertCanCancel(existingReservation);
+
+        Reservation cancelledReservation = reservationPersistenceService
+                .cancelConfirmedReservation(reservationId);
+        reservationEventPublisher.publishReservationCancelled(cancelledReservation);
+
+        return cancelledReservation;
+    }
+
     @Transactional(readOnly = true)
     public ReservationPageResponse getReservations(
             Long roomId,

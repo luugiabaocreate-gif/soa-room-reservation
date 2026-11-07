@@ -3,257 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta
-    name="description"
-    content="Giao diện tra cứu phòng học và đăng ký sử dụng phòng."
-  />
-  <title>Room Reservation</title>
+  <meta name="description" content="Cổng đăng nhập Campus Space cho hệ thống SOA Room Reservation." />
+  <title>Campus Space — Đăng nhập</title>
 </head>
-<body>
-  <div class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">SOA ROOM RESERVATION</p>
-        <h1>Đăng ký sử dụng phòng học</h1>
-        <p class="hero-copy">
-          Tra cứu phòng, kiểm tra trạng thái và gửi yêu cầu đăng ký qua các REST API.
+<body class="auth-body">
+  <main class="auth-layout">
+    <section class="auth-brand" aria-label="Giới thiệu hệ thống">
+      <a class="brand brand-light" href="./index.html" aria-label="Campus Space">
+        <span class="brand-mark">CS</span>
+        <span>Campus Space<small>ROOM RESERVATION</small></span>
+      </a>
+      <div class="auth-brand-copy">
+        <p class="eyebrow light">SERVICE-ORIENTED CAMPUS PLATFORM</p>
+        <h1>Không chỉ đặt một căn phòng.<br />Đó là điều phối một không gian học tập.</h1>
+        <p>
+          Room, Reservation, Auth và Audit là các capability độc lập. Campus Space kết nối
+          chúng thành một hành trình đặt phòng minh bạch, an toàn và có trách nhiệm.
         </p>
       </div>
-      <div class="service-links" aria-label="Liên kết dịch vụ kỹ thuật">
-        <a href="http://localhost:8083/swagger-ui.html" target="_blank" rel="noreferrer">Auth API Docs</a>
-        <a href="http://localhost:8080/swagger-ui.html" target="_blank" rel="noreferrer">Room API Docs</a>
-        <a href="http://localhost:8081/swagger-ui.html" target="_blank" rel="noreferrer">Reservation API Docs</a>
+      <div class="capability-list" aria-label="Các capability nền tảng">
+        <article><span>01</span><div><strong>Identity &amp; access</strong><p>JWT, role và ownership được kiểm tra tại service.</p></div></article>
+        <article><span>02</span><div><strong>Space operations</strong><p>Room Service sở hữu thông tin, trạng thái và năng lực phòng.</p></div></article>
+        <article><span>03</span><div><strong>Trusted booking</strong><p>Reservation chỉ xác nhận sau khi kiểm tra Provider và lịch trùng.</p></div></article>
       </div>
-    </header>
+      <p class="auth-footer">SOA Room Reservation · Operations Platform</p>
+    </section>
 
-    <main>
-      <section id="login-panel" class="panel login-panel" aria-labelledby="login-title">
-        <div>
-          <p class="section-kicker">00 · AUTH SERVICE</p>
-          <h2 id="login-title">Đăng nhập để sử dụng hệ thống</h2>
-          <p class="section-intro">Room và Reservation API được bảo vệ bằng Bearer JWT. Dùng tài khoản demo local từ tài liệu TH5.</p>
+    <section class="auth-card-wrap" aria-labelledby="login-title">
+      <div class="auth-card">
+        <div class="auth-card-heading">
+          <p class="eyebrow">WELCOME BACK</p>
+          <h2 id="login-title">Đăng nhập không gian làm việc</h2>
+          <p>Chọn đúng vai trò của bạn để vào dashboard phù hợp.</p>
         </div>
-        <form id="login-form" class="login-form">
+        <form id="login-form" class="stack-form" novalidate>
           <label>
             Tên đăng nhập
-            <input id="login-username" name="username" type="text" autocomplete="username" required placeholder="Ví dụ: student01" />
+            <input id="login-username" name="username" autocomplete="username" required placeholder="Ví dụ: student01" />
           </label>
           <label>
             Mật khẩu
-            <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="DemoPassword123!" />
+            <div class="password-control">
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Nhập mật khẩu" />
+              <button id="toggle-password" class="icon-button" type="button" aria-label="Hiện mật khẩu">Hiện</button>
+            </div>
           </label>
-          <div class="form-actions align-end">
-            <button id="login-submit" class="button primary" type="submit">Đăng nhập</button>
-          </div>
+          <button id="login-submit" class="button primary wide" type="submit">Vào Campus Space <span>→</span></button>
         </form>
-        <div id="login-result" class="result-card hidden" aria-live="polite"></div>
-      </section>
-
-      <section id="auth-session" class="session-card hidden" aria-live="polite">
-        <div>
-          <strong id="session-name"></strong>
-          <span id="session-role" class="summary-badge"></span>
-          <p id="session-description"></p>
+        <div id="login-result" class="inline-alert hidden" aria-live="polite"></div>
+        <div class="login-note">
+          <strong>Đăng nhập có kiểm soát</strong>
+          <p>Mật khẩu chỉ gửi tới Auth Service. Web UI không lưu password và không chứa service credential.</p>
         </div>
-        <button id="logout-button" class="button secondary" type="button">Đăng xuất</button>
-      </section>
-
-      <div id="protected-content" class="protected-content hidden">
-      <section id="notice" class="notice hidden" aria-live="polite"></section>
-
-      <section class="panel" aria-labelledby="rooms-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">01 · ROOM SERVICE</p>
-            <h2 id="rooms-title">Tra cứu phòng</h2>
-            <p>Tìm theo mã/tòa nhà, trạng thái, loại phòng và sức chứa tối thiểu.</p>
-          </div>
-          <span id="room-summary" class="summary-badge">Đang tải...</span>
-        </div>
-
-        <form id="room-filter-form" class="filter-grid">
-          <label>
-            Từ khóa
-            <input id="room-keyword" name="keyword" type="search" placeholder="Ví dụ: A101 hoặc tòa A" />
-          </label>
-          <label>
-            Trạng thái
-            <select id="room-status" name="status">
-              <option value="">Tất cả trạng thái</option>
-              <option value="AVAILABLE">AVAILABLE</option>
-              <option value="MAINTENANCE">MAINTENANCE</option>
-              <option value="LOCKED">LOCKED</option>
-              <option value="OUT_OF_SERVICE">OUT_OF_SERVICE</option>
-            </select>
-          </label>
-          <label>
-            Loại phòng
-            <select id="room-type" name="type">
-              <option value="">Tất cả loại</option>
-              <option value="THEORY">THEORY</option>
-              <option value="LAB">LAB</option>
-            </select>
-          </label>
-          <label>
-            Sức chứa tối thiểu
-            <input id="room-min-capacity" name="minCapacity" type="number" min="1" placeholder="Ví dụ: 30" />
-          </label>
-          <label>
-            Sắp xếp
-            <select id="room-sort" name="sort">
-              <option value="id,asc">ID tăng dần</option>
-              <option value="code,asc">Mã phòng A–Z</option>
-              <option value="capacity,desc">Sức chứa giảm dần</option>
-              <option value="building,asc">Tòa nhà A–Z</option>
-              <option value="status,asc">Trạng thái A–Z</option>
-            </select>
-          </label>
-          <div class="form-actions align-end">
-            <button type="submit" class="button primary">Lọc phòng</button>
-            <button id="reset-room-filter" type="button" class="button secondary">Xóa bộ lọc</button>
-          </div>
-        </form>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Mã</th>
-                <th>Tòa / tầng</th>
-                <th>Loại</th>
-                <th>Sức chứa</th>
-                <th>Trạng thái</th>
-                <th><span class="sr-only">Đặt phòng</span></th>
-              </tr>
-            </thead>
-            <tbody id="rooms-table-body"></tbody>
-          </table>
-        </div>
-        <div id="room-empty" class="empty-state hidden">Không có phòng phù hợp với bộ lọc.</div>
-        <div class="pagination" aria-label="Phân trang phòng">
-          <button id="room-previous" class="button secondary" type="button">← Trang trước</button>
-          <span id="room-page-info">Trang 1</span>
-          <button id="room-next" class="button secondary" type="button">Trang sau →</button>
-        </div>
-      </section>
-
-      <section class="panel reservation-layout" aria-labelledby="create-title">
-        <div>
-          <p class="section-kicker">02 · RESERVATION SERVICE</p>
-          <h2 id="create-title">Tạo đăng ký phòng</h2>
-          <p class="section-intro">
-            Hệ thống sẽ gọi Room Service để kiểm tra Room tồn tại, trạng thái và sức chứa
-            trước khi xác nhận đăng ký.
-          </p>
-        </div>
-
-        <form id="reservation-form" class="reservation-form">
-          <label>
-            Room ID
-            <input id="reservation-room-id" name="roomId" type="number" min="1" required placeholder="Chọn từ bảng phòng hoặc nhập ID" />
-          </label>
-          <label>
-            Mã người đăng ký
-            <input id="reservation-requester-id" name="requesterId" type="text" required maxlength="100" readonly />
-          </label>
-          <label>
-            Tên người đăng ký
-            <input id="reservation-requester-name" name="requesterName" type="text" required maxlength="150" readonly />
-          </label>
-          <label>
-            Mục đích sử dụng
-            <input name="purpose" type="text" required maxlength="300" placeholder="Ví dụ: Học nhóm môn SOA" />
-          </label>
-          <label>
-            Bắt đầu
-            <input name="startTime" type="datetime-local" required />
-          </label>
-          <label>
-            Kết thúc
-            <input name="endTime" type="datetime-local" required />
-          </label>
-          <label>
-            Số người tham gia
-            <input name="attendeeCount" type="number" min="1" required placeholder="Ví dụ: 25" />
-          </label>
-          <div class="form-actions align-end">
-            <button id="reservation-submit" type="submit" class="button primary">Gửi yêu cầu đăng ký</button>
-          </div>
-        </form>
-
-        <div id="reservation-result" class="result-card hidden" aria-live="polite"></div>
-      </section>
-
-      <section class="panel" aria-labelledby="reservations-title">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">03 · RESERVATION LIST</p>
-            <h2 id="reservations-title">Danh sách đăng ký</h2>
-            <p>Đây là dữ liệu do Reservation Service sở hữu; giao diện không truy cập trực tiếp database.</p>
-          </div>
-          <span id="reservation-summary" class="summary-badge">Chưa tải</span>
-        </div>
-
-        <form id="reservation-filter-form" class="filter-grid reservation-filter-grid">
-          <label>
-            Room ID
-            <input id="reservation-filter-room-id" name="roomId" type="number" min="1" placeholder="Ví dụ: 1" />
-          </label>
-          <label>
-            Mã người đăng ký
-            <input id="reservation-filter-requester-id" name="requesterId" type="search" placeholder="Theo JWT của Student" />
-          </label>
-          <label>
-            Trạng thái
-            <select id="reservation-filter-status" name="status">
-              <option value="">Tất cả trạng thái</option>
-              <option value="CONFIRMED">CONFIRMED</option>
-            </select>
-          </label>
-          <label>
-            Sắp xếp
-            <select id="reservation-sort" name="sort">
-              <option value="id,asc">ID tăng dần</option>
-              <option value="startTime,asc">Bắt đầu sớm nhất</option>
-              <option value="startTime,desc">Bắt đầu muộn nhất</option>
-              <option value="roomCode,asc">Mã phòng A–Z</option>
-            </select>
-          </label>
-          <div class="form-actions align-end">
-            <button type="submit" class="button primary">Lọc đăng ký</button>
-            <button id="reset-reservation-filter" type="button" class="button secondary">Xóa bộ lọc</button>
-          </div>
-        </form>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Phòng</th>
-                <th>Người đăng ký</th>
-                <th>Thời gian</th>
-                <th>Số người</th>
-                <th>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody id="reservations-table-body"></tbody>
-          </table>
-        </div>
-        <div id="reservation-empty" class="empty-state hidden">Chưa có đăng ký phù hợp.</div>
-        <div class="pagination" aria-label="Phân trang đăng ký">
-          <button id="reservation-previous" class="button secondary" type="button">← Trang trước</button>
-          <span id="reservation-page-info">Trang 1</span>
-          <button id="reservation-next" class="button secondary" type="button">Trang sau →</button>
-        </div>
-      </section>
       </div>
-    </main>
-
-    <footer>
-      <p>UI chỉ gọi REST API. Audit event được xử lý bất đồng bộ ở backend và không được UI tuyên bố là đã hoàn tất.</p>
-    </footer>
-  </div>
-  <script type="module" src="/src/main.js"></script>
+    </section>
+  </main>
+  <script type="module" src="/src/login.js"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@ public class ReservationAuditConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ReservationAuditConsumer.class);
 
     @RabbitListener(queues = "reservation.audit.queue")
-    public void consumeReservationConfirmed(
+    public void consumeReservationLifecycleEvent(
             ReservationConfirmedAuditMessage event
     ) {
         LOGGER.info(

@@ -46,8 +46,12 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/reservations")
                         .hasAnyRole("STUDENT", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/reservations/*/cancel")
+                        .hasAnyRole("STUDENT", "ADMIN")
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/reservations/**", "/api/v2/reservations/**")
+                                "/api/v1/reservations/**",
+                                "/api/v2/reservations/**",
+                                "/api/v3/availability/**")
                         .hasAnyRole("STUDENT", "ROOM_MANAGER", "ADMIN")
                         .anyRequest().denyAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

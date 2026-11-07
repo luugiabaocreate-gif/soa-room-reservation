@@ -1,14 +1,16 @@
-# SOA Room Reservation — TH1 đến TH5
+# SOA Room Reservation — TH1 đến TH6 + Campus Operations
 
 > **Một hệ thống quản lý phòng học và đăng ký sử dụng phòng theo hướng dịch vụ (service-oriented), không phải một tập hợp CRUD rời rạc.**
 >
 > Mục tiêu của dự án là mô tả rõ: ai sở hữu dữ liệu nào, request đi qua đâu, service nào được quyền gọi service nào, lỗi được trả về thế nào và vì sao người dùng không thể xem/sửa dữ liệu không thuộc quyền của mình.
 
-| Phiên bản source hiện tại | Git branch | Commit nền TH5 |
+| Phiên bản source đã chốt | Tag/branch | Ý nghĩa |
 |---|---|---|
-| TH1 → TH5 | `feature/th5-auth-security` | `3966014` — `feat(th5): add JWT authentication and authorization` |
+| TH1 → TH5 | `th5-auth-security-complete` | Auth, JWT, RBAC, ownership và evidence. |
+| TH6 | `th6-integration-consumption-complete` | Reservation Consumer ↔ Room Provider integration, contract và evidence. |
+| Campus Operations Platform | `feature/campus-operations-platform` | Nâng UI thành Login Portal + role workspaces; bổ sung Availability capability và Reservation cancellation lifecycle. |
 
-> `main`/tag `th4-postgresql-jpa-persistence-complete` (`28b0ff4`) là snapshot TH4. Muốn chạy Auth/JWT/RBAC/Web UI TH5 phải dùng branch `feature/th5-auth-security`.
+> Hai tag TH5/TH6 là baseline ổn định. Nâng cấp Campus Operations được phát triển trên branch riêng để các flow/evidence đã chốt không bị xáo trộn.
 
 ---
 
@@ -36,6 +38,7 @@ Nói ngắn gọn: **Room quản lý phòng; Reservation quản lý lịch đăn
 | **TH4** | PostgreSQL/JPA, DB riêng theo service, local transaction, persistence after restart | Vì sao `room_id` không có foreign key vật lý sang `room_db`? |
 | **TH5** | Auth Service, BCrypt, JWT 15 phút, RBAC, ownership, service token | Khác nhau giữa 401/403? Vì sao Student không giả requesterId? Vì sao service không forward token người dùng? |
 | **TH6** | Consumer Reservation tích hợp Room Provider thành flow xác nhận Reservation xuyên service; contract, sequence diagram, error/timeout tests | Consumer gọi Provider nào? Dữ liệu nào được trust? Khi Provider 404/409/503 thì Reservation có được ghi không? |
+| **Campus Operations** | Login Portal tách riêng Operations Application; role workspace; Availability read capability; cancellation lifecycle/event; Room Operations UI | Vì sao availability thuộc Reservation Service? UI làm gì và không được làm gì? Vì sao hủy không delete record? |
 
 ---
 
@@ -676,6 +679,18 @@ TH6 dùng lại nghiệp vụ có thật thay vì dựng service minh họa khô
 - [`integration/sequence-diagram/reservation-room-confirmation.png`](integration/sequence-diagram/reservation-room-confirmation.png) — sequence diagram.
 - [`integration/postman/reservation-room-integration-tests.json`](integration/postman/reservation-room-integration-tests.json) — TH6 integration tests.
 - [`integration/test-results.md`](integration/test-results.md) — test procedure and result-recording rule.
+
+## Campus Operations Platform — sau TH6
+
+Nâng cấp này không thêm một "microservice cho đủ số lượng". Nó đưa capability đã có thành một workflow vận hành thực tế và bổ sung hai capability còn thiếu:
+
+- **Two-surface UI:** `/` là Login Portal; `/app.html` là Operations Application. Login không còn chỉ là section bị ẩn trong cùng một HTML.
+- **Role workspace:** Student booking/history; Room Manager/ADMIN Room Operations theo đúng API/role của Room Service.
+- **Availability API:** `Reservation Service` ghép Room Provider metadata với conflict trong `reservation_db`, trả status privacy-safe thay vì để browser đoán lịch trống.
+- **Cancellation lifecycle:** `CONFIRMED → CANCELLED`, server ownership check, giữ audit history và publish `reservation.cancelled` event.
+
+- [`docs/campus-operations-platform.md`](docs/campus-operations-platform.md) — capability boundary, API, lifecycle và roadmap event-driven tiếp theo.
+- [`web-ui/README.md`](web-ui/README.md) — hai UI pages, role workspace, smoke test và local runbook.
 
 ## Tài liệu liên quan
 

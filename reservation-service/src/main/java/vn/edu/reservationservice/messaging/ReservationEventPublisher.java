@@ -20,23 +20,47 @@ public class ReservationEventPublisher {
 
     public void publishReservationConfirmed(Reservation reservation) {
         ReservationConfirmedEvent event = ReservationConfirmedEvent.from(reservation);
+        publish(
+                RabbitMqTopologyConfig.RESERVATION_CONFIRMED_ROUTING_KEY,
+                event,
+                reservation,
+                "confirmed"
+        );
+    }
 
+    public void publishReservationCancelled(Reservation reservation) {
+        ReservationCancelledEvent event = ReservationCancelledEvent.from(reservation);
+        publish(
+                RabbitMqTopologyConfig.RESERVATION_CANCELLED_ROUTING_KEY,
+                event,
+                reservation,
+                "cancelled"
+        );
+    }
+
+    private void publish(
+            String routingKey,
+            Object event,
+            Reservation reservation,
+            String lifecycleAction
+    ) {
         try {
             rabbitTemplate.convertAndSend(
                     RabbitMqTopologyConfig.RESERVATION_EVENTS_EXCHANGE,
-                    RabbitMqTopologyConfig.RESERVATION_CONFIRMED_ROUTING_KEY,
+                    routingKey,
                     event
             );
 
             LOGGER.info(
-                    "Published ReservationConfirmedEvent: eventId={}, reservationId={}",
-                    event.eventId(),
+                    "Published reservation lifecycle event: action={}, reservationId={}",
+                    lifecycleAction,
                     reservation.id()
             );
         } catch (AmqpException exception) {
             LOGGER.error(
-                    "Reservation {} was confirmed, but its event could not be published",
+                    "Reservation {} was {}, but its event could not be published",
                     reservation.id(),
+                    lifecycleAction,
                     exception
             );
         }

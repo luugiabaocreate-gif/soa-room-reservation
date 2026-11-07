@@ -4,6 +4,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import vn.edu.reservationservice.reservation.Reservation;
 import vn.edu.reservationservice.reservation.ReservationRequest;
 
 @Component
@@ -41,6 +42,25 @@ public class ReservationAccessPolicy {
             return user.requesterId();
         }
         return requestedRequesterId;
+    }
+
+    /**
+     * Student ownership is checked from the server-side JWT principal, never
+     * from an id supplied by the browser. ADMIN can cancel administratively.
+     */
+    public void assertCanCancel(Reservation reservation) {
+        AuthenticatedUser user = currentUser();
+        if (user.hasRole("ADMIN")) {
+            return;
+        }
+
+        if (user.hasRole("STUDENT")
+                && user.requesterId() != null
+                && user.requesterId().equals(reservation.requesterId())) {
+            return;
+        }
+
+        throw new AccessDeniedException("Bạn không có quyền hủy đăng ký này");
     }
 
     public AuthenticatedUser currentUser() {

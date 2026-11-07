@@ -11,6 +11,8 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import vn.edu.reservationservice.client.RoomNotFoundException;
 import vn.edu.reservationservice.client.RoomServiceUnavailableException;
 import vn.edu.reservationservice.reservation.InvalidReservationTimeException;
+import vn.edu.reservationservice.reservation.ReservationNotCancellableException;
+import vn.edu.reservationservice.reservation.ReservationNotFoundException;
 import vn.edu.reservationservice.reservation.RoomScheduleConflictException;
 import vn.edu.reservationservice.reservation.RoomUnavailableException;
 
@@ -67,6 +69,32 @@ public class GlobalExceptionHandler {
         return buildError(
                 HttpStatus.NOT_FOUND,
                 "ROOM_NOT_FOUND",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
+    @ExceptionHandler(ReservationNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleReservationNotFound(
+            ReservationNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return buildError(
+                HttpStatus.NOT_FOUND,
+                "RESERVATION_NOT_FOUND",
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+    }
+
+    @ExceptionHandler(ReservationNotCancellableException.class)
+    public ResponseEntity<Map<String, Object>> handleReservationNotCancellable(
+            ReservationNotCancellableException exception,
+            HttpServletRequest request
+    ) {
+        return buildError(
+                HttpStatus.CONFLICT,
+                "RESERVATION_NOT_CANCELLABLE",
                 exception.getMessage(),
                 request.getRequestURI()
         );

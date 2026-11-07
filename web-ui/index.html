@@ -1,63 +1,325 @@
 <!doctype html>
 <html lang="vi">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Cổng đăng nhập Campus Space cho hệ thống SOA Room Reservation." />
-  <title>Campus Space — Đăng nhập</title>
-</head>
-<body class="auth-body">
-  <main class="auth-layout">
-    <section class="auth-brand" aria-label="Giới thiệu hệ thống">
-      <a class="brand brand-light" href="./index.html" aria-label="Campus Space">
-        <span class="brand-mark">CS</span>
-        <span>Campus Space<small>ROOM RESERVATION</small></span>
-      </a>
-      <div class="auth-brand-copy">
-        <p class="eyebrow light">SERVICE-ORIENTED CAMPUS PLATFORM</p>
-        <h1>Không chỉ đặt một căn phòng.<br />Đó là điều phối một không gian học tập.</h1>
-        <p>
-          Room, Reservation, Auth và Audit là các capability độc lập. Campus Space kết nối
-          chúng thành một hành trình đặt phòng minh bạch, an toàn và có trách nhiệm.
-        </p>
-      </div>
-      <div class="capability-list" aria-label="Các capability nền tảng">
-        <article><span>01</span><div><strong>Identity &amp; access</strong><p>JWT, role và ownership được kiểm tra tại service.</p></div></article>
-        <article><span>02</span><div><strong>Space operations</strong><p>Room Service sở hữu thông tin, trạng thái và năng lực phòng.</p></div></article>
-        <article><span>03</span><div><strong>Trusted booking</strong><p>Reservation chỉ xác nhận sau khi kiểm tra Provider và lịch trùng.</p></div></article>
-      </div>
-      <p class="auth-footer">SOA Room Reservation · Operations Platform</p>
-    </section>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campus Space — Robot Login Portal</title>
+  </head>
+  <body>
+    <!-- Floating Audio Mute/Unmute Pill (Minimal, top-right) -->
+    <button
+      id="soundToggleBtn"
+      class="sound-float-btn"
+      type="button"
+      aria-label="Bật/Tắt âm thanh"
+      title="Âm thanh tương tác"
+    >
+      <svg
+        id="soundIconOn"
+        class="icon-svg"
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+      </svg>
+      <svg
+        id="soundIconOff"
+        class="icon-svg hidden"
+        viewBox="0 0 24 24"
+        width="16"
+        height="16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <line x1="22" x2="16" y1="9" y2="15" />
+        <line x1="16" x2="22" y1="9" y2="15" />
+      </svg>
+    </button>
 
-    <section class="auth-card-wrap" aria-labelledby="login-title">
-      <div class="auth-card">
-        <div class="auth-card-heading">
-          <p class="eyebrow">WELCOME BACK</p>
-          <h2 id="login-title">Đăng nhập không gian làm việc</h2>
-          <p>Chọn đúng vai trò của bạn để vào dashboard phù hợp.</p>
-        </div>
-        <form id="login-form" class="stack-form" novalidate>
-          <label>
-            Tên đăng nhập
-            <input id="login-username" name="username" autocomplete="username" required placeholder="Ví dụ: student01" />
-          </label>
-          <label>
-            Mật khẩu
-            <div class="password-control">
-              <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Nhập mật khẩu" />
-              <button id="toggle-password" class="icon-button" type="button" aria-label="Hiện mật khẩu">Hiện</button>
+    <!-- Main Scene Stage -->
+    <main class="main-stage">
+      <div class="card-assembly" id="cardAssembly">
+        <!-- ================= 1. ROBOT MASCOT (BEHIND CARD) ================= -->
+        <div class="robot-behind" id="robotBehind">
+          <!-- Animated Speech Bubble -->
+          <div class="speech-bubble" id="speechBubble">
+            <span class="bubble-text" id="bubbleText"
+              >Xin chào. Cho tôi biết bạn là ai nhé.</span
+            >
+            <div class="bubble-tail"></div>
+          </div>
+
+          <!-- Robot Head Shell -->
+          <div class="robot-head" id="robotHead">
+            <!-- Static Cute Side Ears / Antennae -->
+            <div class="ear ear-left" id="earL">
+              <div class="ear-inner"></div>
             </div>
-          </label>
-          <button id="login-submit" class="button primary wide" type="submit">Vào Campus Space <span>→</span></button>
-        </form>
-        <div id="login-result" class="inline-alert hidden" aria-live="polite"></div>
-        <div class="login-note">
-          <strong>Đăng nhập có kiểm soát</strong>
-          <p>Mật khẩu chỉ gửi tới Auth Service. Web UI không lưu password và không chứa service credential.</p>
+            <div class="ear ear-right" id="earR">
+              <div class="ear-inner"></div>
+            </div>
+
+            <!-- Head Outer Casing -->
+            <div class="head-casing">
+              <!-- Dark Visor Screen -->
+              <div class="screen-visor" id="screenVisor">
+                <!-- Laser Scanline (Active during submission) -->
+                <div class="scanline hidden" id="scanline"></div>
+
+                <!-- Sweat Drop for Error / Nervous state -->
+                <div class="sweat-drop hidden" id="sweatDrop">💧</div>
+
+                <!-- Eyes Container -->
+                <div class="eyes-container" id="eyesContainer">
+                  <!-- Normal Capsule Eyes with Specular Highlights -->
+                  <div class="eyes-layer eyes-normal" id="eyesNormal">
+                    <div class="eye-capsule eye-left" id="eyeL">
+                      <div class="eye-sparkle-main"></div>
+                      <div class="eye-sparkle-sub"></div>
+                    </div>
+                    <div class="eye-capsule eye-right" id="eyeR">
+                      <div class="eye-sparkle-main"></div>
+                      <div class="eye-sparkle-sub"></div>
+                    </div>
+                  </div>
+
+                  <!-- Happy Arc Eyes (^^) -->
+                  <div class="eyes-layer eyes-happy hidden" id="eyesHappy">
+                    <div class="happy-arc"></div>
+                    <div class="happy-arc"></div>
+                  </div>
+
+                  <!-- Error / Dizzy Eyes (✕ ✕) -->
+                  <div class="eyes-layer eyes-error hidden" id="eyesError">
+                    <div class="error-cross">✕</div>
+                    <div class="error-cross">✕</div>
+                  </div>
+
+                  <!-- Peeking Eyes (Left Squint, Right Big Curious) -->
+                  <div class="eyes-layer eyes-peek hidden" id="eyesPeek">
+                    <div class="eye-peek-left"></div>
+                    <div class="eye-peek-right">
+                      <div class="eye-sparkle-main"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Rosy Cheeks (Blush) -->
+                <div class="blush-cheeks" id="blushCheeks">
+                  <div class="blush blush-left"></div>
+                  <div class="blush blush-right"></div>
+                </div>
+
+                <!-- Dynamic Expressive Mouth System -->
+                <div class="mouth-stage" id="mouthStage">
+                  <!-- 1. Idle dot / small smile -->
+                  <div class="mouth-shape mouth-dot" id="mouthDot"></div>
+
+                  <!-- 2. Cat / playful 'w' :3 -->
+                  <div class="mouth-shape mouth-w hidden" id="mouthW">
+                    <svg
+                      viewBox="0 0 20 10"
+                      width="16"
+                      height="8"
+                      fill="none"
+                      stroke="#ffffff"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M2 3c2 4 4 4 6 0c2 4 4 4 6 0" />
+                    </svg>
+                  </div>
+
+                  <!-- 3. Talking 'o' / Surprised -->
+                  <div class="mouth-shape mouth-o hidden" id="mouthO"></div>
+
+                  <!-- 4. Overjoyed Open Smile with Tongue :D -->
+                  <div
+                    class="mouth-shape mouth-happy-open hidden"
+                    id="mouthHappy"
+                  >
+                    <div class="happy-tongue"></div>
+                  </div>
+
+                  <!-- 5. Sad Frown / Pout (｡•́︿•̀｡) -->
+                  <div
+                    class="mouth-shape mouth-frown hidden"
+                    id="mouthFrown"
+                  ></div>
+
+                  <!-- 6. Cute Smirk / Whistle -->
+                  <div
+                    class="mouth-shape mouth-smirk hidden"
+                    id="mouthSmirk"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= 2. SIGN BOARD (THE WHITE CARD) ================= -->
+        <div class="sign-board" id="signBoard">
+          <!-- PAWS: Clamped on top edge of the board with cute marshmallow fingers -->
+          <div class="paw paw-left" id="pawLeft" aria-hidden="true">
+            <div class="finger-groove"></div>
+            <div class="finger-groove"></div>
+          </div>
+
+          <div class="paw paw-right" id="pawRight" aria-hidden="true">
+            <div class="finger-groove"></div>
+            <div class="finger-groove"></div>
+          </div>
+
+          <!-- ================= FORM 1: LOGIN (Original Design) ================= -->
+          <form
+            id="formLogin"
+            class="auth-form active-form"
+            autocomplete="off"
+          >
+            <h1 class="card-heading">Bíp bíp. Ai đang ghé Campus Space?</h1>
+
+            <div class="form-inputs-group">
+              <!-- Name Input -->
+              <div class="input-row">
+                <div class="input-capsule">
+                  <span class="input-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </span>
+                  <input
+                    type="text"
+                    id="loginName"
+                    placeholder="Tên đăng nhập"
+                    required
+                    autocomplete="username"
+                    spellcheck="false"
+                  />
+                </div>
+              </div>
+
+              <!-- Password Input -->
+              <div class="input-row">
+                <div class="input-capsule">
+                  <span class="input-icon" aria-hidden="true">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </span>
+                  <input
+                    type="password"
+                    id="loginPass"
+                    placeholder="Mật khẩu bí mật"
+                    required
+                    autocomplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    class="eye-toggle-btn toggle-password"
+                    data-target="loginPass"
+                    aria-label="Xem mật khẩu"
+                    title="Xem / Ẩn mật khẩu"
+                  >
+                    <svg
+                      class="eye-show"
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <svg
+                      class="eye-hide hidden"
+                      viewBox="0 0 24 24"
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                      <path
+                        d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"
+                      />
+                      <path
+                        d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"
+                      />
+                      <line x1="2" x2="22" y1="2" y2="22" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Terracotta Brick Button ("LOG IN") -->
+            <button type="submit" class="brick-btn" id="loginBtn">
+              <span class="btn-spinner hidden" aria-hidden="true"></span>
+              <span class="btn-caption">VÀO KHÔNG GIAN LÀM VIỆC</span>
+            </button>
+
+            <div id="loginResult" class="login-result hidden" aria-live="polite"></div>
+            <p class="login-security-note">Auth Service xác thực mật khẩu và phát JWT. Web UI không lưu mật khẩu hay service secret.</p>
+          </form>
+
+          <div class="auth-contract-note" aria-label="Thông tin xác thực">
+            <span class="auth-contract-dot" aria-hidden="true"></span>
+            <p>Credentials travel only to Auth Service. The robot never stores your password.</p>
+          </div>
+
+          <!-- FEET: Clamped firmly under the bottom edge (Center-locked) -->
+          <div class="feet-mount" id="feetMount" aria-hidden="true">
+            <div class="foot foot-left"></div>
+            <div class="foot foot-right"></div>
+          </div>
         </div>
       </div>
-    </section>
-  </main>
-  <script type="module" src="/src/login.js"></script>
-</body>
+    </main>
+
+    <!-- Confetti Canvas -->
+    <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+
+    <script type="module" src="/src/login.js"></script>
+  </body>
 </html>

@@ -40,6 +40,8 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const elements = {
   sidebar: $('.sidebar'),
+  mascot: $('#operations-mascot'),
+  assistantLine: $('#assistant-line'),
   mobileMenu: $('#mobile-menu-button'),
   navButtons: $$('[data-view-target]'),
   views: $$('[data-view]'),
@@ -151,6 +153,11 @@ function statusPill(status) {
   return `<span class="status-pill ${escapeHtml(normalized)}">${escapeHtml(status)}</span>`;
 }
 
+function setMascotMood(mood = 'idle', message) {
+  elements.mascot.className = `operations-mascot ${mood}`;
+  if (message) elements.assistantLine.textContent = message;
+}
+
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
@@ -239,6 +246,14 @@ function openView(view) {
   const [kicker, title] = viewMetadata(view);
   elements.viewKicker.textContent = kicker;
   elements.viewTitle.textContent = title;
+  const mascotMessages = {
+    dashboard: 'Tổng quan đã sẵn sàng. Hôm nay mình hỗ trợ gì đây?',
+    booking: 'Tôi đang kết nối Reservation và Room để tìm không gian hợp lý.',
+    reservations: 'Mỗi Reservation đều có owner và lifecycle riêng.',
+    rooms: 'Room Service đang giữ danh mục không gian cho chúng ta.',
+    'room-operations': 'Chế độ vận hành: thay đổi nào cũng đi qua Room Service.',
+  };
+  setMascotMood(view === 'booking' ? 'thinking' : 'idle', mascotMessages[view]);
   elements.sidebar.classList.remove('mobile-open');
   window.location.hash = view;
 
@@ -303,6 +318,7 @@ async function findAvailability(event) {
   }
 
   const submit = elements.availabilityForm.querySelector('button[type="submit"]');
+  setMascotMood('thinking', 'Đang hỏi Room Provider và kiểm lịch Reservation…');
   setButtonBusy(submit, true, 'Đang hỏi Availability API');
   try {
     const response = await reservationApi.availability({
@@ -315,7 +331,11 @@ async function findAvailability(event) {
     state.selectedRoom = null;
     elements.confirmation.classList.add('hidden');
     renderAvailability(response);
+    setMascotMood(response.availableCount ? 'happy' : 'alert', response.availableCount
+      ? `Tôi tìm thấy ${response.availableCount} không gian có thể xem xét!`
+      : 'Chưa có candidate phù hợp. Mình thử đổi thời gian hoặc quy mô nhé.');
   } catch (error) {
+    setMascotMood('alert', 'Có một service đang cần được kiểm tra.');
     showToast(describeApiError(error), 'error');
   } finally {
     setButtonBusy(submit, false);
@@ -374,6 +394,7 @@ async function createReservation(event) {
       endTime: elements.availabilityTo.value,
       attendeeCount: Number(elements.reservationAttendees.value),
     }, state.accessToken);
+    setMascotMood('happy', `Tuyệt! Reservation #${reservation.id} đã được xác nhận.`);
     showToast(`Reservation #${reservation.id} đã CONFIRMED. Audit event được publish sau local commit.`, 'success');
     elements.reservationForm.reset();
     state.selectedRoom = null;
@@ -385,6 +406,7 @@ async function createReservation(event) {
     }
     loadDashboard();
   } catch (error) {
+    setMascotMood('alert', 'Chưa thể xác nhận. Mình kiểm tra lại điều kiện nhé.');
     showToast(describeApiError(error), 'error');
     if (error?.code === 'ROOM_SCHEDULE_CONFLICT') elements.confirmation.classList.add('hidden');
   } finally {

@@ -1,0 +1,951 @@
+/* ========================================================
+   CUTE 2D VECTOR ROBOT AUTHENTICATION FORM
+   Zero Alignment Bugs | Clean Aesthetics | 100% Full Width
+   ======================================================== */
+
+:root {
+  --bg-sand: #f6f0ea;
+  --bg-dots: #dfd5c6;
+  --dark-ink: #232526;
+  --card-white: #ffffff;
+  --terracotta: #d8654b;
+  --terracotta-hover: #c9573e;
+  --input-bg: #fdfbf9;
+  --input-border: #e2dbcf;
+  --text-muted: #8c867e;
+  --screen-dark: #24272c;
+  --accent-blush: #ff9ebb;
+  --accent-emerald: #10b981;
+  --accent-ruby: #ef4444;
+
+  --font-main: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-sand);
+  background-image: radial-gradient(var(--bg-dots) 1.25px, transparent 1.25px);
+  background-size: 16px 16px;
+  color: var(--dark-ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow-x: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ================= Minimal Floating Audio Toggle ================= */
+.sound-float-btn {
+  position: fixed;
+  top: 18px;
+  right: 20px;
+  background: var(--card-white);
+  border: 2px solid var(--dark-ink);
+  color: var(--dark-ink);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px var(--dark-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.sound-float-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--dark-ink);
+}
+
+.sound-float-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px var(--dark-ink);
+}
+
+.icon-svg {
+  display: block;
+}
+
+/* ================= Main Stage Layout ================= */
+.main-stage {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 380px;
+  padding: 110px 16px 40px; /* Room for speech bubble & robot head */
+  margin: auto;
+  display: flex;
+  justify-content: center;
+}
+
+/* ================= CARD ASSEMBLY ================= */
+.card-assembly {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ================= 1. ROBOT MASCOT (BEHIND CARD) ================= */
+.robot-behind {
+  position: absolute;
+  bottom: calc(
+    100% - 16px
+  ); /* Head bottom tucks 16px behind board top border */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 1; /* Behind sign board (z-index: 5) */
+  pointer-events: none;
+  width: 100%;
+}
+
+/* Animated Speech Bubble */
+.speech-bubble {
+  position: relative;
+  background: var(--card-white);
+  border: 2.5px solid var(--dark-ink);
+  border-radius: 14px;
+  padding: 6px 14px;
+  font-family: var(--font-main);
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--dark-ink);
+  box-shadow: 2.5px 2.5px 0px var(--dark-ink);
+  text-align: center;
+  white-space: nowrap;
+  margin-bottom: 12px;
+  pointer-events: auto;
+  animation: bubbleFloat 3.8s ease-in-out infinite alternate;
+  transform-origin: bottom center;
+  transition: transform 0.2s ease;
+}
+
+@keyframes bubbleFloat {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-3px);
+  }
+}
+
+.bubble-tail {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px;
+  height: 10px;
+  background: var(--card-white);
+  border-right: 2.5px solid var(--dark-ink);
+  border-bottom: 2.5px solid var(--dark-ink);
+}
+
+/* Robot Head Structure */
+.robot-head {
+  position: relative;
+  width: 114px;
+  height: 94px;
+  transform-origin: center bottom;
+  animation: headBobbing 4.2s ease-in-out infinite alternate;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+@keyframes headBobbing {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-3.5px);
+  }
+}
+
+/* Static Cute Side Ears / Antennae (Clean & Steady) */
+.ear {
+  position: absolute;
+  top: 32px;
+  width: 8px;
+  height: 25px;
+  background: var(--card-white);
+  border: 2.2px solid var(--dark-ink);
+  border-radius: 6px;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ear-left {
+  left: -5.5px;
+}
+.ear-right {
+  right: -5.5px;
+}
+
+.ear-inner {
+  width: 2px;
+  height: 11px;
+  background: var(--dark-ink);
+  border-radius: 1px;
+}
+
+/* Head Outer Shell */
+.head-casing {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--card-white);
+  border: 3px solid var(--dark-ink);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  box-shadow: 0 4px 10px rgba(35, 37, 38, 0.05);
+}
+
+/* Dark Visor Screen */
+.screen-visor {
+  position: relative;
+  width: 82px;
+  height: 64px;
+  background: var(--screen-dark);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Laser Scanline */
+.scanline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: scanLoop 0.75s ease-in-out infinite alternate;
+  z-index: 10;
+}
+
+@keyframes scanLoop {
+  0% {
+    top: 4px;
+    opacity: 0.5;
+  }
+  100% {
+    top: 56px;
+    opacity: 1;
+  }
+}
+
+/* Sweat Drop (Nervous / Error state) */
+.sweat-drop {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 11px;
+  animation: sweatAnim 0.6s ease infinite alternate;
+  z-index: 12;
+}
+
+@keyframes sweatAnim {
+  0% {
+    transform: translateY(0);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(3px);
+    opacity: 1;
+  }
+}
+
+/* Eyes Container */
+.eyes-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  margin-top: -3px;
+}
+
+.eyes-layer {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  transition: transform 0.1s ease-out;
+}
+
+/* Normal Capsule Eyes */
+.eye-capsule {
+  width: 13px;
+  height: 21px;
+  background: #ffffff;
+  border-radius: 7px;
+  position: relative;
+  transition: transform 0.08s ease-out;
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+}
+
+.eye-sparkle-main {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 4px;
+  height: 5px;
+  background: #ffffff;
+  border-radius: 50%;
+}
+
+.eye-sparkle-sub {
+  position: absolute;
+  bottom: 3.5px;
+  right: 3px;
+  width: 2.5px;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+}
+
+/* Soft Blinking */
+.robot-head.blinking .eye-capsule {
+  transform: scaleY(0.08);
+}
+
+/* Happy Eyes Arc (^^) */
+.eyes-happy .happy-arc {
+  width: 16px;
+  height: 10px;
+  border: 3px solid var(--accent-emerald);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  animation: happyBounce 0.4s ease infinite alternate;
+}
+
+@keyframes happyBounce {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-2px);
+  }
+}
+
+/* Error Eyes (✕ ✕) */
+.eyes-error {
+  gap: 14px;
+  color: var(--accent-ruby);
+  font-weight: 900;
+  font-size: 15px;
+}
+
+/* Peeking Eyes (Left Squint, Right Wide Open) */
+.eye-peek-left {
+  width: 13px;
+  height: 3px;
+  background: #ffffff;
+  border-radius: 2px;
+  margin-top: 6px;
+}
+
+.eye-peek-right {
+  width: 14px;
+  height: 21px;
+  background: #ffffff;
+  border-radius: 7px;
+  position: relative;
+  animation: peekGaze 0.4s ease infinite alternate;
+}
+
+@keyframes peekGaze {
+  0% {
+    transform: translate3d(-1px, 2px, 0);
+  }
+  100% {
+    transform: translate3d(2px, 4px, 0);
+  }
+}
+
+/* Rosy Blush Cheeks */
+.blush-cheeks {
+  position: absolute;
+  top: 36px;
+  width: 68px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.blush {
+  width: 9px;
+  height: 5px;
+  background: var(--accent-blush);
+  border-radius: 50%;
+  filter: blur(0.5px);
+}
+
+.robot-head.has-blush .blush-cheeks {
+  opacity: 0.9;
+}
+
+/* ================= EXPRESSIVE MOUTH SYSTEM ================= */
+.mouth-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 12px;
+  margin-top: 3px;
+  position: relative;
+}
+
+.mouth-shape {
+  transition: all 0.15s ease;
+}
+
+/* 1. Idle dot / pill */
+.mouth-dot {
+  width: 5px;
+  height: 5px;
+  background: #ffffff;
+  border-radius: 50%;
+}
+
+/* 2. Cat / playful 'w' :3 */
+.mouth-w {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 3. Surprised / talking 'o' */
+.mouth-o {
+  width: 6.5px;
+  height: 7px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+/* 4. Overjoyed Open Smile with Pink Tongue :D */
+.mouth-happy-open {
+  width: 14px;
+  height: 8px;
+  background: #ffffff;
+  border-radius: 0 0 10px 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.happy-tongue {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 6px;
+  background: #ff758f;
+  border-radius: 50%;
+}
+
+/* 5. Sad Frown / Pout */
+.mouth-frown {
+  width: 13px;
+  height: 6px;
+  border: 2.2px solid var(--accent-ruby);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+}
+
+/* 6. Cute Smirk */
+.mouth-smirk {
+  width: 10px;
+  height: 5px;
+  border: 2px solid #ffffff;
+  border-top: none;
+  border-left: none;
+  border-radius: 0 0 8px 0;
+  transform: rotate(8deg);
+}
+
+/* ================= 2. SIGN BOARD (THE WHITE CARD) ================= */
+.sign-board {
+  position: relative;
+  width: 100%;
+  background: var(--card-white);
+  border: 3px solid var(--dark-ink);
+  border-radius: 22px;
+  box-shadow: 6px 6px 0px var(--dark-ink);
+  padding: 24px 22px 22px;
+  z-index: 5; /* In front of robot-behind */
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+/* Shake when Error */
+.card-assembly.state-shake .sign-board {
+  animation: boardShakeAnim 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.card-assembly.state-shake .robot-head {
+  animation: headErrorShake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes boardShakeAnim {
+  10%,
+  90% {
+    transform: translate3d(-3px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(4px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-5px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(5px, 0, 0);
+  }
+}
+
+@keyframes headErrorShake {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20%,
+  60% {
+    transform: rotate(-9deg) translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: rotate(9deg) translateX(4px);
+  }
+}
+
+/* ================= 3. PAWS (PHYSICALLY CLAMPED ON BOARD TOP EDGE) ================= */
+.paw {
+  position: absolute;
+  top: -14px; /* Clamps over top edge */
+  width: 36px;
+  height: 25px;
+  background: var(--card-white);
+  border: 2.5px solid var(--dark-ink);
+  border-radius: 13px 13px 6px 6px;
+  z-index: 15; /* Sits on top of the board edge */
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  padding-top: 2px;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.paw-left {
+  left: 20px;
+}
+
+.paw-right {
+  right: 20px;
+}
+
+.finger-groove {
+  width: 2px;
+  height: 13px;
+  background: var(--dark-ink);
+  border-radius: 1px;
+}
+
+/* ================= EXACT GESTURES & POSITIONS ================= */
+
+/* 1. COVERING EYES: Paws land DEAD-CENTER on the visor screen eyes */
+.card-assembly.covering-eyes .paw-left {
+  transform: translate3d(116px, -43px, 0) scale(1.12) rotate(6deg);
+}
+
+.card-assembly.covering-eyes .paw-right {
+  transform: translate3d(-116px, -43px, 0) scale(1.12) rotate(-6deg);
+}
+
+.card-assembly.covering-eyes .robot-head {
+  transform: translateY(2px) scale(0.98);
+}
+
+/* 2. PEEKING: Right paw tilts aside gracefully, left paw covers */
+.card-assembly.peeking .paw-left {
+  transform: translate3d(116px, -43px, 0) scale(1.12) rotate(6deg);
+}
+
+.card-assembly.peeking .paw-right {
+  transform: translate3d(-58px, -18px, 0) scale(1.05) rotate(28deg);
+}
+
+.card-assembly.peeking .robot-head {
+  transform: translateY(0px) rotate(3deg);
+}
+
+/* 3. CELEBRATING: Victory arms raised high, robot jumps joyfully */
+.card-assembly.celebrating .paw-left {
+  transform: translate3d(8px, -74px, 0) rotate(-32deg);
+}
+
+.card-assembly.celebrating .paw-right {
+  transform: translate3d(-8px, -74px, 0) rotate(32deg);
+}
+
+.card-assembly.celebrating .robot-head {
+  transform: translateY(-15px) scale(1.06);
+}
+
+/* 4. HOVERING BUTTON: Head perks up eagerly */
+.card-assembly.hovering-submit .robot-head {
+  transform: translateY(-6px) scale(1.03);
+}
+
+/* ================= 4. FEET (CENTER-LOCKED UNDER BOARD) ================= */
+.feet-mount {
+  position: absolute;
+  top: calc(100% - 6px); /* 6px under bottom border */
+  left: 50%;
+  transform: translateX(-50%); /* Base centering */
+  width: 65%;
+  display: flex;
+  justify-content: space-between;
+  z-index: -1;
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.foot {
+  width: 44px;
+  height: 18px;
+  background: var(--card-white);
+  border: 2.5px solid var(--dark-ink);
+  border-radius: 5px 5px 12px 12px;
+  box-shadow: 2px 2px 0px var(--dark-ink);
+}
+
+/* Always preserve translateX(-50%) so feet NEVER shift right! */
+.card-assembly.hovering-submit .feet-mount {
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.card-assembly.celebrating .feet-mount {
+  transform: translateX(-50%) translateY(-10px);
+}
+
+/* ================= AUTH FORMS ================= */
+.auth-form {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  animation: formFadeIn 0.22s ease-out forwards;
+  width: 100%;
+}
+
+.auth-form.active-form {
+  display: flex;
+}
+
+@keyframes formFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-heading {
+  font-family: var(--font-main);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--dark-ink);
+  line-height: 1.3;
+  margin-bottom: 2px;
+  letter-spacing: -0.3px;
+}
+
+/* Form Inputs Group */
+.form-inputs-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+/* Forgot 2-Step Flow */
+.forgot-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+/* Input Capsule */
+.input-capsule {
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border: 2px solid var(--input-border);
+  border-radius: 12px;
+  padding: 0 13px;
+  height: 48px;
+  width: 100%;
+  transition: all 0.18s ease;
+}
+
+.input-capsule:focus-within {
+  background: #ffffff;
+  border-color: var(--dark-ink);
+  box-shadow: 2.5px 2.5px 0px var(--terracotta);
+}
+
+.input-icon {
+  color: var(--dark-ink);
+  display: flex;
+  align-items: center;
+  margin-right: 9px;
+  opacity: 0.85;
+}
+
+.input-capsule input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-main);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--dark-ink);
+  outline: none;
+  width: 100%;
+}
+
+.input-capsule input::placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.eye-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--dark-ink);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.eye-toggle-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.match-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+/* Terracotta Button - 100% Full Width */
+.brick-btn {
+  width: 100%;
+  background: var(--terracotta);
+  color: #ffffff;
+  border: 2.5px solid var(--dark-ink);
+  border-radius: 12px;
+  height: 48px;
+  font-family: var(--font-main);
+  font-size: 0.98rem;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  box-shadow: 0 4px 0px var(--dark-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.15s ease;
+  margin-top: 2px;
+}
+
+.brick-btn:hover {
+  background: var(--terracotta-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 5px 0px var(--dark-ink);
+}
+
+.brick-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0px var(--dark-ink);
+}
+
+.btn-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2.5px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spinnerRotate 0.8s linear infinite;
+}
+
+@keyframes spinnerRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Footer Switch Links */
+.form-footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.text-link {
+  background: transparent;
+  border: none;
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.text-link:hover {
+  color: var(--dark-ink);
+  text-decoration: underline;
+}
+
+.dot-separator {
+  font-size: 0.7rem;
+  color: #c9c1b4;
+}
+
+/* Notice Alert */
+.notice-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1.8px solid var(--accent-emerald);
+  color: #065f46;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ================= Confetti Canvas ================= */
+#confettiCanvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* Campus Space integration: the supplied robot design remains intact; these
+   declarations only adapt it from a demo form into a real Auth Service portal. */
+.auth-contract-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1.7px dashed var(--input-border);
+  border-radius: 10px;
+  background: #fffdf9;
+}
+.auth-contract-note p,
+.login-security-note {
+  color: var(--text-muted);
+  font-size: .71rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.auth-contract-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  box-shadow: 0 0 0 3px #d9f7eb;
+}
+.login-security-note {
+  text-align: center;
+}
+.login-result {
+  padding: 9px 11px;
+  border: 1.8px solid var(--accent-ruby);
+  border-radius: 10px;
+  color: #9f1e30;
+  background: #fff1f3;
+  font-size: .76rem;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: center;
+}
+.login-result.success {
+  border-color: var(--accent-emerald);
+  color: #075e3b;
+  background: #effcf4;
+}
+@media (max-width: 430px) {
+  .main-stage { padding-right: 12px; padding-left: 12px; }
+  .sign-board { padding: 22px 17px 20px; }
+  .speech-bubble { max-width: 280px; white-space: normal; }
+}

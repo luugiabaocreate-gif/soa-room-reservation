@@ -51,7 +51,7 @@ export async function requestJson(url, { accessToken, skipAuth = false, headers 
     throw new ApiError({
       status: 0,
       code: 'NETWORK_ERROR',
-      message: 'Không kết nối được tới service. Hãy kiểm tra Docker và các service local.',
+      message: 'Could not reach a service. Check Docker and the local services.',
     });
   }
 
@@ -69,7 +69,7 @@ export async function requestJson(url, { accessToken, skipAuth = false, headers 
     throw new ApiError({
       status: response.status,
       code: body?.code ?? 'REQUEST_FAILED',
-      message: body?.message ?? `Request thất bại với HTTP ${response.status}.`,
+      message: body?.message ?? `Request failed with HTTP ${response.status}.`,
       errors: body?.errors ?? [],
     });
   }
@@ -141,18 +141,18 @@ export const reservationApi = {
 
 export function describeApiError(error) {
   if (!(error instanceof ApiError)) {
-    return 'Đã xảy ra lỗi không xác định.';
+    return 'An unexpected error occurred.';
   }
 
   const details = error.errors?.length ? ` ${error.errors.join(' · ')}` : '';
   const explanations = {
-    AUTHENTICATION_REQUIRED: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn. Hãy đăng nhập lại.',
-    ACCESS_DENIED: 'Tài khoản hiện tại không có quyền thực hiện thao tác này.',
-    ROOM_NOT_FOUND: 'Phòng không còn tồn tại trên Room Service.',
-    ROOM_NOT_AVAILABLE: 'Phòng không còn đủ điều kiện hoạt động hoặc sức chứa.',
-    ROOM_SCHEDULE_CONFLICT: 'Khoảng giờ này vừa được một Reservation khác chiếm. Hãy tìm lại phòng.',
-    ROOM_SERVICE_UNAVAILABLE: 'Room Service đang tạm thời không phản hồi. Dữ liệu chưa được tạo.',
-    RESERVATION_NOT_CANCELLABLE: 'Reservation này không còn ở trạng thái có thể hủy.',
+    AUTHENTICATION_REQUIRED: 'Your session is invalid or expired. Please sign in again.',
+    ACCESS_DENIED: 'Your account does not have permission for this action.',
+    ROOM_NOT_FOUND: 'This room no longer exists in Room Service.',
+    ROOM_NOT_AVAILABLE: 'This room no longer meets the required operating state or capacity.',
+    ROOM_SCHEDULE_CONFLICT: 'Another Reservation just occupied this time slot. Search again for a room.',
+    ROOM_SERVICE_UNAVAILABLE: 'Room Service is temporarily unavailable. No data was created.',
+    RESERVATION_NOT_CANCELLABLE: 'This Reservation is no longer in a cancellable state.',
   };
 
   return `${explanations[error.code] ?? error.message}${details}`;

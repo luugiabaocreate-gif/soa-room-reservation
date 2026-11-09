@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
@@ -17,6 +18,17 @@ import java.net.URI;
  */
 @Configuration
 public class RestClientConfig {
+
+    /**
+     * Eureka itself must reach the physical registry URL. Make a plain builder
+     * primary so Eureka's HTTP client does not face the two application-level
+     * load-balanced builder candidates below.
+     */
+    @Bean
+    @Primary
+    RestClient.Builder infrastructureRestClientBuilder() {
+        return RestClient.builder();
+    }
 
     @Bean("roomLoadBalancedRestClientBuilder")
     @LoadBalanced

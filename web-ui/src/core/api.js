@@ -1,20 +1,25 @@
+// Browser traffic has one public entry point after TH7. The gateway resolves
+// service locations through Eureka; the browser never sees service instance ports.
+const API_GATEWAY_BASE_URL = import.meta.env.VITE_API_GATEWAY_BASE_URL
+  ?? 'http://localhost:8088';
 const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL
-  ?? 'http://localhost:8083/api/v1';
+  ?? `${API_GATEWAY_BASE_URL}/api/v1`;
 const ROOM_API_BASE_URL = import.meta.env.VITE_ROOM_API_BASE_URL
-  ?? 'http://localhost:8080/api/v1';
+  ?? `${API_GATEWAY_BASE_URL}/api/v1`;
 const ROOM_QUERY_API_BASE_URL = import.meta.env.VITE_ROOM_QUERY_API_BASE_URL
-  ?? 'http://localhost:8080/api/v2';
+  ?? `${API_GATEWAY_BASE_URL}/api/v2`;
 const RESERVATION_API_BASE_URL = import.meta.env.VITE_RESERVATION_API_BASE_URL
-  ?? 'http://localhost:8081/api/v1';
+  ?? `${API_GATEWAY_BASE_URL}/api/v1`;
 const RESERVATION_QUERY_API_BASE_URL = import.meta.env.VITE_RESERVATION_QUERY_API_BASE_URL
-  ?? 'http://localhost:8081/api/v2';
+  ?? `${API_GATEWAY_BASE_URL}/api/v2`;
 const AVAILABILITY_API_BASE_URL = import.meta.env.VITE_AVAILABILITY_API_BASE_URL
-  ?? 'http://localhost:8081/api/v3';
+  ?? `${API_GATEWAY_BASE_URL}/api/v3`;
 
+// Diagnostics are deliberately not rendered as a business feature. They are
+// available to the developer console for TH7 operational verification only.
 export const serviceUrls = {
-  authDocs: AUTH_API_BASE_URL.replace('/api/v1', '/swagger-ui.html'),
-  roomDocs: ROOM_API_BASE_URL.replace('/api/v1', '/swagger-ui.html'),
-  reservationDocs: RESERVATION_API_BASE_URL.replace('/api/v1', '/swagger-ui.html'),
+  gatewayHealth: `${API_GATEWAY_BASE_URL}/actuator/health`,
+  registry: import.meta.env.VITE_SERVICE_REGISTRY_URL ?? 'http://localhost:8761',
 };
 
 export function buildUrl(baseUrl, path = '', params = {}) {
@@ -51,7 +56,7 @@ export async function requestJson(url, { accessToken, skipAuth = false, headers 
     throw new ApiError({
       status: 0,
       code: 'NETWORK_ERROR',
-      message: 'Could not reach a service. Check Docker and the local services.',
+      message: 'Could not reach API Gateway. Check the gateway, Service Registry, and services.',
     });
   }
 

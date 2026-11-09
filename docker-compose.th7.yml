@@ -1,0 +1,138 @@
+# TH7 application topology. Combine with docker-compose.yml, which owns the
+# databases and RabbitMQ: docker compose -f docker-compose.yml -f docker-compose.th7.yml up --build
+services:
+  service-registry:
+    build: ./service-registry
+    environment:
+      SERVER_PORT: 8761
+    ports:
+      - "8761:8761"
+
+  auth-service:
+    build: ./auth-service
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8083
+      INSTANCE_ID: auth-1
+      EUREKA_DEFAULT_ZONE: http://service-registry:8761/eureka/
+      AUTH_DB_URL: jdbc:postgresql://auth-db:5432/auth_db
+      AUTH_DB_USERNAME: ${AUTH_DB_USERNAME:-auth_user}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-auth_local_dev}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      RESERVATION_SERVICE_CLIENT_SECRET: ${RESERVATION_SERVICE_CLIENT_SECRET:?Set RESERVATION_SERVICE_CLIENT_SECRET in .env}
+      WEB_UI_ORIGIN: ${WEB_UI_ORIGIN:-http://localhost:5173}
+    ports:
+      - "8083:8083"
+
+  room-service-1:
+    build: ./room-service
+    depends_on:
+      room-db:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8080
+      INSTANCE_ID: room-1
+      EUREKA_DEFAULT_ZONE: http://service-registry:8761/eureka/
+      ROOM_DB_URL: jdbc:postgresql://room-db:5432/room_db
+      ROOM_DB_USERNAME: ${ROOM_DB_USERNAME:-room_user}
+      ROOM_DB_PASSWORD: ${ROOM_DB_PASSWORD:-room_local_dev}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      WEB_UI_ORIGIN: ${WEB_UI_ORIGIN:-http://localhost:5173}
+    ports:
+      - "8080:8080"
+
+  room-service-2:
+    build: ./room-service
+    depends_on:
+      room-db:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8084
+      INSTANCE_ID: room-2
+      EUREKA_DEFAULT_ZONE: http://service-registry:8761/eureka/
+      ROOM_DB_URL: jdbc:postgresql://room-db:5432/room_db
+      ROOM_DB_USERNAME: ${ROOM_DB_USERNAME:-room_user}
+      ROOM_DB_PASSWORD: ${ROOM_DB_PASSWORD:-room_local_dev}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      WEB_UI_ORIGIN: ${WEB_UI_ORIGIN:-http://localhost:5173}
+    ports:
+      - "8084:8084"
+
+  reservation-service:
+    build: ./reservation-service
+    depends_on:
+      reservation-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      room-service-1:
+        condition: service_started
+      room-service-2:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8081
+      INSTANCE_ID: reservation-1
+      EUREKA_DEFAULT_ZONE: http://service-registry:8761/eureka/
+      RESERVATION_DB_URL: jdbc:postgresql://reservation-db:5432/reservation_db
+      RESERVATION_DB_USERNAME: ${RESERVATION_DB_USERNAME:-reservation_user}
+      RESERVATION_DB_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation_local_dev}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-soa}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-soa-local-dev}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      RESERVATION_SERVICE_CLIENT_SECRET: ${RESERVATION_SERVICE_CLIENT_SECRET:?Set RESERVATION_SERVICE_CLIENT_SECRET in .env}
+      WEB_UI_ORIGIN: ${WEB_UI_ORIGIN:-http://localhost:5173}
+    ports:
+      - "8081:8081"
+
+  audit-service:
+    build: ./audit-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      service-registry:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8082
+      INSTANCE_ID: audit-1
+      EUREKA_DEFAULT_ZONE: http://service-registry:8761/eureka/
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-soa}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-soa-local-dev}
+    ports:
+      - "8082:8082"
+
+  api-gateway:
+    build: ./api-gateway
+    depends_on:
+      service-registry:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      room-service-1:
+        condition: service_started
+      room-service-2:
+        condition: service_started
+      reservation-service:
+        condition: service_started
+      audit-service:
+        condition: service_started
+    environment:
+      SERVER_PORT: 8088
+      INSTANCE_ID: gateway-1
+      EUREKA_DEFAULT_ZONE: http://service-registry:8761/eureka/
+      WEB_UI_ORIGIN: ${WEB_UI_ORIGIN:-http://localhost:5173}
+    ports:
+      - "8088:8088"

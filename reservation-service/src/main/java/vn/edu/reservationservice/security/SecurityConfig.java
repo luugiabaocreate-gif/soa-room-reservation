@@ -40,6 +40,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
+                                "/actuator/health",
+                                "/actuator/info",
                                 "/v3/api-docs/**",
                                 "/api/v1/reservations/hello",
                                 "/api/v1/reservations/info"
@@ -51,7 +53,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/reservations/**",
                                 "/api/v2/reservations/**",
-                                "/api/v3/availability/**")
+                                "/api/v3/availability/**",
+                                "/api/v1/discovery/**")
                         .hasAnyRole("STUDENT", "ROOM_MANAGER", "ADMIN")
                         .anyRequest().denyAll())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

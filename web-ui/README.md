@@ -4,10 +4,11 @@ Campus Space là browser client của các capability SOA trong project, không 
 một CRUD screen nối trực tiếp vào database.
 
 ```text
-Login Portal (/) → Auth Service
-Operations Application (/app.html) → Room Service + Reservation Service
-Reservation Service → Auth machine token → Room Service
+Login Portal (/) → API Gateway → Auth Service
+Operations Application (/app.html) → API Gateway → Room / Reservation Service
+Reservation Service → Eureka discovery + machine token → Room / Auth Service
 Reservation Service → RabbitMQ → Audit Service
+All business services + API Gateway → Service Registry (Eureka)
 ```
 
 Browser **không** truy cập database/RabbitMQ, không chứa machine credential và
@@ -51,11 +52,13 @@ business result hợp lệ.
 
 ## Điều kiện chạy
 
-1. Auth Service ở `http://localhost:8083`.
-2. Room Service ở `http://localhost:8080`.
-3. Reservation Service ở `http://localhost:8081` (có Availability API v3 và cancellation API).
-4. RabbitMQ/Audit Service được chạy nếu cần quan sát lifecycle event.
+1. Service Registry ở `http://localhost:8761`.
+2. API Gateway ở `http://localhost:8088`.
+3. Auth, Room, Reservation và Audit Service đã đăng ký `UP` trên Eureka.
+4. RabbitMQ được chạy nếu cần quan sát lifecycle event.
 5. Node.js 18+.
+
+Browser chỉ gọi API Gateway. Reservation Service tìm Room/Auth bằng Service ID qua Eureka; browser không gọi từng service port trực tiếp.
 
 ## Chạy UI
 
@@ -76,18 +79,14 @@ Copy file mẫu khi các service không chạy ở localhost mặc định:
 Copy-Item .env.example .env
 ```
 
-Các biến:
+Biến chính:
 
 ```text
-VITE_AUTH_API_BASE_URL
-VITE_ROOM_API_BASE_URL
-VITE_ROOM_QUERY_API_BASE_URL
-VITE_RESERVATION_API_BASE_URL
-VITE_RESERVATION_QUERY_API_BASE_URL
-VITE_AVAILABILITY_API_BASE_URL
+VITE_API_GATEWAY_BASE_URL
+VITE_SERVICE_REGISTRY_URL
 ```
 
-Không commit `.env` và không đưa service secret vào browser.
+Các direct-URL override chỉ dành cho diagnostic cô lập; không dùng chúng cho browser flow bình thường. Không commit `.env` và không đưa service secret vào browser.
 
 ## Smoke test Campus Operations
 

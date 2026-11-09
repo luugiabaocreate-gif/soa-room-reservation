@@ -1,0 +1,67 @@
+server:
+  port: ${SERVER_PORT:8088}
+
+spring:
+  application:
+    name: API-GATEWAY
+  cloud:
+    gateway:
+      server:
+        webflux:
+          default-filters:
+            # Downstream services retain their existing browser CORS policy.
+            # The gateway is the public edge and keeps duplicate headers out.
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowed-origins:
+                  - ${WEB_UI_ORIGIN:http://localhost:5173}
+                allowed-methods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowed-headers:
+                  - Authorization
+                  - Content-Type
+                  - Accept
+                max-age: 3600
+          routes:
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/v1/auth/**
+            - id: room-service
+              uri: lb://ROOM-SERVICE
+              predicates:
+                - Path=/api/v1/rooms/**,/api/v2/rooms/**
+            - id: reservation-service
+              uri: lb://RESERVATION-SERVICE
+              predicates:
+                - Path=/api/v1/reservations/**,/api/v2/reservations/**,/api/v3/availability/**,/api/v1/discovery/**
+            - id: audit-service
+              uri: lb://AUDIT-SERVICE
+              predicates:
+                - Path=/api/v1/audits/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULT_ZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    instance-id: ${spring.application.name}:${INSTANCE_ID:${server.port}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: never

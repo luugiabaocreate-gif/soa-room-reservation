@@ -1,4 +1,4 @@
-# SOA Room Reservation — TH1 đến TH6 + Campus Operations
+# SOA Room Reservation — TH1 đến TH7 + Campus Operations
 
 > **Một hệ thống quản lý phòng học và đăng ký sử dụng phòng theo hướng dịch vụ (service-oriented), không phải một tập hợp CRUD rời rạc.**
 >
@@ -9,6 +9,7 @@
 | TH1 → TH5 | `th5-auth-security-complete` | Auth, JWT, RBAC, ownership và evidence. |
 | TH6 | `th6-integration-consumption-complete` | Reservation Consumer ↔ Room Provider integration, contract và evidence. |
 | Campus Operations Platform | `feature/campus-operations-platform` | Nâng UI thành Login Portal + role workspaces; bổ sung Availability capability và Reservation cancellation lifecycle. |
+| TH7 | `feature/service-registry-discovery` | Eureka Service Registry, Service Discovery, hai Room instance và API Gateway. |
 
 > Hai tag TH5/TH6 là baseline ổn định. Nâng cấp Campus Operations được phát triển trên branch riêng để các flow/evidence đã chốt không bị xáo trộn.
 
@@ -39,6 +40,7 @@ Nói ngắn gọn: **Room quản lý phòng; Reservation quản lý lịch đăn
 | **TH5** | Auth Service, BCrypt, JWT 15 phút, RBAC, ownership, service token | Khác nhau giữa 401/403? Vì sao Student không giả requesterId? Vì sao service không forward token người dùng? |
 | **TH6** | Consumer Reservation tích hợp Room Provider thành flow xác nhận Reservation xuyên service; contract, sequence diagram, error/timeout tests | Consumer gọi Provider nào? Dữ liệu nào được trust? Khi Provider 404/409/503 thì Reservation có được ghi không? |
 | **Campus Operations** | Login Portal tách riêng Operations Application; role workspace; Availability read capability; cancellation lifecycle/event; Room Operations UI | Vì sao availability thuộc Reservation Service? UI làm gì và không được làm gì? Vì sao hủy không delete record? |
+| **TH7** | Eureka Registry, logical Service ID, discovery/load balancing, hai Room instance, API Gateway | Vì sao Registry không phải Gateway? Consumer nào gọi Provider qua Service ID? Một/all Room instance dừng thì sao? |
 
 ---
 
@@ -63,28 +65,36 @@ Nói ngắn gọn: **Room quản lý phòng; Reservation quản lý lịch đăn
 flowchart LR
     U["👤 Student / Room Manager / Admin"]
     W["🌐 Web UI\nVite :5173\nKhông truy cập DB/MQ"]
-    A["🔐 Auth Service :8083\nBCrypt + JWT issuer"]
-    R["🏫 Room Service :8080\nRoom API + JWT resource server"]
-    RS["🗓️ Reservation Service :8081\nOwnership + orchestration"]
+    G["🚪 API Gateway :8088\nBrowser entry point"]
+    E["🧭 Eureka Registry :8761\nService discovery"]
+    A["🔐 AUTH-SERVICE :8083\nBCrypt + JWT issuer"]
+    R["🏫 ROOM-SERVICE :8080 / :8084\nRoom API + resource server"]
+    RS["🗓️ RESERVATION-SERVICE :8081\nOwnership + orchestration"]
     Q[("🐇 RabbitMQ\n:5672 / UI :15672")]
-    AU["🧾 Audit Service :8082\nRabbitMQ consumer"]
+    AU["🧾 AUDIT-SERVICE :8082\nRabbitMQ consumer"]
     RDB[("room_db\nPostgreSQL :5433")]
     RSDB[("reservation_db\nPostgreSQL :5434")]
     ADB[("auth_db\nPostgreSQL :5435")]
 
-    U -->|"username/password"| W
-    W -->|"POST /auth/login"| A
-    A -->|"Bearer JWT 15 phút"| W
-    W -->|"Bearer JWT"| R
-    W -->|"Bearer JWT"| RS
+    U -->|"username/password / Bearer JWT"| W
+    W -->|"one reachable API URL"| G
+    G -->|"lb:// Service ID"| A
+    G -->|"lb:// Service ID"| R
+    G -->|"lb:// Service ID"| RS
+
+    G -. "register / fetch" .-> E
+    A -. "register / fetch" .-> E
+    R -. "register / fetch" .-> E
+    RS -. "register / fetch" .-> E
+    AU -. "register / fetch" .-> E
 
     A --- ADB
     R --- RDB
     RS --- RSDB
 
-    RS -->|"client credential"| A
+    RS -->|"logical AUTH-SERVICE: client credential"| A
     A -->|"machine JWT\naudience=room-service"| RS
-    RS -->|"REST lookup Room\nBearer machine JWT"| R
+    RS -->|"logical ROOM-SERVICE\nload-balanced REST + machine JWT"| R
     RS -->|"reservation.confirmed"| Q
     Q -->|"consume event"| AU
 ```
@@ -132,9 +142,9 @@ flowchart TB
 
 | Từ | Đến | Kiểu | Input | Output/ý nghĩa | Nếu thất bại |
 |---|---|---|---|---|---|
-| Web UI | Auth | HTTP REST | `username`, `password` | JWT user 900 giây | `401 INVALID_CREDENTIALS` |
-| Web UI | Room | HTTP REST + user JWT | Bearer token, room query/body | Room data hoặc mutation result | `401`/`403`/validation error |
-| Web UI | Reservation | HTTP REST + user JWT | Bearer token, Reservation body/query | Reservation data | role + ownership enforced |
+| Web UI | API Gateway | HTTP REST | `username`, `password` hoặc Bearer JWT | Một browser entry URL; Gateway route `lb://SERVICE-ID` | gateway/network error |
+| API Gateway | Auth / Room / Reservation | HTTP REST forwarding | Public path + existing headers | API contract không đổi; từng service vẫn tự verify JWT/RBAC | downstream `401`/`403`/validation/5xx |
+| Reservation | Eureka Registry | Discovery | logical Service ID | danh sách `ROOM-SERVICE`/`AUTH-SERVICE` instance đang UP | không phụ thuộc provider port hard-code |
 | Reservation | Auth | HTTP REST + client credential | `clientId`, `clientSecret` | machine JWT có audience `room-service` | controlled server error nếu Auth unavailable/config sai |
 | Reservation | Room | HTTP REST + machine JWT | `roomId` | room `id`, `code`, `capacity`, `status` | 404/503 after retry policy |
 | Reservation | RabbitMQ | AMQP event | `ReservationConfirmedEvent` | event accepted by broker | Reservation đã commit; event gap là known future-work risk |
@@ -147,25 +157,33 @@ sequenceDiagram
     autonumber
     actor User as Người dùng
     participant UI as Web UI :5173
+    participant GW as API Gateway :8088
     participant Auth as Auth Service :8083
     participant DB as auth_db
     participant API as Room / Reservation API
 
     User->>UI: Nhập username + password
-    UI->>Auth: POST /api/v1/auth/login
+    UI->>GW: POST /api/v1/auth/login
+    GW->>Auth: lb://AUTH-SERVICE + same path
     Auth->>DB: Tìm user + BCrypt.matches(password, passwordHash)
     alt Sai password / user inactive / không tồn tại
-        Auth-->>UI: 401 INVALID_CREDENTIALS (generic)
+        Auth-->>GW: 401 INVALID_CREDENTIALS (generic)
+        GW-->>UI: 401 INVALID_CREDENTIALS
     else Hợp lệ
-        Auth-->>UI: 200 {accessToken, tokenType=Bearer, expiresIn=900}
-        UI->>API: Request + Authorization: Bearer JWT
+        Auth-->>GW: 200 {accessToken, tokenType=Bearer, expiresIn=900}
+        GW-->>UI: 200 {accessToken, tokenType=Bearer, expiresIn=900}
+        UI->>GW: Request + Authorization: Bearer JWT
+        GW->>API: lb:// Service ID + existing headers
         API->>API: Verify signature, issuer, expiry, audience, roles
         alt Token thiếu/sai/hết hạn
-            API-->>UI: 401 AUTHENTICATION_REQUIRED
+            API-->>GW: 401 AUTHENTICATION_REQUIRED
+            GW-->>UI: 401 AUTHENTICATION_REQUIRED
         else Token đúng nhưng role không đủ
-            API-->>UI: 403 ACCESS_DENIED
+            API-->>GW: 403 ACCESS_DENIED
+            GW-->>UI: 403 ACCESS_DENIED
         else Được phép
-            API-->>UI: 200/201 business response
+            API-->>GW: 200/201 business response
+            GW-->>UI: 200/201 business response
         end
     end
 ```
@@ -177,6 +195,7 @@ sequenceDiagram
     autonumber
     actor Student as Student
     participant UI as Web UI
+    participant GW as API Gateway
     participant RES as Reservation Service
     participant AUTH as Auth Service
     participant ROOM as Room Service
@@ -185,7 +204,8 @@ sequenceDiagram
     participant AUDIT as Audit Service
 
     Student->>UI: Chọn phòng, thời gian, mục đích
-    UI->>RES: POST /reservations + user JWT
+    UI->>GW: POST /reservations + user JWT
+    GW->>RES: lb://RESERVATION-SERVICE + same headers
     RES->>RES: Verify user JWT + role + ownership
     Note over RES: Với STUDENT, requesterId/name\ntrong body bị thay bằng claims JWT
     RES->>AUTH: POST /service-token (clientId + clientSecret)
@@ -193,14 +213,16 @@ sequenceDiagram
     RES->>ROOM: GET /rooms/{roomId} + machine JWT
     alt Không có phòng / Room unavailable
         ROOM-->>RES: 404 / business error
-        RES-->>UI: Controlled 4xx/503 response
+        RES-->>GW: Controlled 4xx/503 response
+        GW-->>UI: Controlled 4xx/503 response
     else Phòng hợp lệ
         ROOM-->>RES: RoomResponse
         RES->>RES: Check time range, capacity, schedule conflict
         RES->>RDB: Local transaction: save CONFIRMED Reservation
         RDB-->>RES: committed Reservation
         RES->>MQ: publish reservation.confirmed
-        RES-->>UI: 201 CONFIRMED Reservation
+        RES-->>GW: 201 CONFIRMED Reservation
+        GW-->>UI: 201 CONFIRMED Reservation
         MQ-->>AUDIT: consume event
         AUDIT->>AUDIT: log AUDIT EVENT RECEIVED
     end
@@ -702,3 +724,12 @@ Nâng cấp này không thêm một "microservice cho đủ số lượng". Nó 
 - [`postman/TH5_Security_Extended_Evidence.postman_collection.json`](postman/TH5_Security_Extended_Evidence.postman_collection.json) — regression collection mở rộng.
 
 > **Thông điệp chính:** Code chỉ là cách hiện thực. Giá trị hệ thống nằm ở các hợp đồng rõ ràng: service nào owner dữ liệu nào, input nào được tin hay không được tin, ai có quyền gì, message nào được gửi khi nào và hệ thống phản ứng ra sao khi một dependency thất bại.
+
+
+---
+
+## TH7 — Service Registry và Service Discovery
+
+TH7 bổ sung `service-registry` (Eureka :8761) và `api-gateway` (:8088). `AUTH-SERVICE`, `ROOM-SERVICE`, `RESERVATION-SERVICE`, `AUDIT-SERVICE` và Gateway tự đăng ký vào Eureka. Reservation Service dùng logical Service ID `ROOM-SERVICE`/`AUTH-SERVICE` với Spring Cloud LoadBalancer thay vì phụ thuộc hard-coded provider port. Hai Room instance (`room-1`, `room-2`) chia sẻ `room_db` để minh chứng scale-out đúng với stateful business service.
+
+Browser gọi Gateway qua một URL; Gateway route bằng `lb://SERVICE-ID`, còn từng downstream service vẫn giữ kiểm tra JWT/RBAC/ownership. Xem [thiết kế TH7](docs/th7-service-registry.md) và [runbook TH7](docs/th7-runbook.md).

@@ -51,6 +51,8 @@ public class RoomClient {
                     .body(RoomResponse.class);
         } catch (HttpClientErrorException.NotFound exception) {
             throw new RoomNotFoundException(roomId);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            throw new RoomServiceUnavailableException(roomId, exception);
         }
     }
 
@@ -75,23 +77,44 @@ public class RoomClient {
                 minimumCapacity
         );
 
-        return roomRestClient.get()
-                .uri(uriBuilder -> {
-                    var builder = uriBuilder
-                            .path("/api/v2/rooms")
-                            .queryParam("status", "AVAILABLE")
-                            .queryParam("minCapacity", minimumCapacity)
-                            .queryParam("page", 0)
-                            .queryParam("size", 50)
-                            .queryParam("sort", "code,asc");
-                    if (roomType != null) {
-                        builder.queryParam("type", roomType);
-                    }
-                    return builder.build();
-                })
-                .header("Authorization", "Bearer " + serviceTokenClient.roomServiceToken())
-                .retrieve()
-                .body(RoomDirectoryPage.class);
+        try {
+            return roomRestClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder
+                                .path("/api/v2/rooms")
+                                .queryParam("status", "AVAILABLE")
+                                .queryParam("minCapacity", minimumCapacity)
+                                .queryParam("page", 0)
+                                .queryParam("size", 50)
+                                .queryParam("sort", "code,asc");
+                        if (roomType != null) {
+                            builder.queryParam("type", roomType);
+                        }
+                        return builder.build();
+                    })
+                    .header("Authorization", "Bearer " + serviceTokenClient.roomServiceToken())
+                    .retrieve()
+                    .body(RoomDirectoryPage.class);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            throw new RoomServiceUnavailableException("lấy danh mục phòng phù hợp", exception);
+        }
+    }
+
+    /**
+     * Evidence endpoint for TH7. This request follows exactly the same
+     * discovery-enabled Room client as the business calls above, but returns
+     * only the provider instance identity so load distribution is observable.
+     */
+    public RoomProviderInstance discoverServingRoomInstance() {
+        try {
+            return roomRestClient.get()
+                    .uri("/api/v1/rooms/provider-info")
+                    .header("Authorization", "Bearer " + serviceTokenClient.roomServiceToken())
+                    .retrieve()
+                    .body(RoomProviderInstance.class);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            throw new RoomServiceUnavailableException("khám phá một Room Service instance", exception);
+        }
     }
 
     @Recover

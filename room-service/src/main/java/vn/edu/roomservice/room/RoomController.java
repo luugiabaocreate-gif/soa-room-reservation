@@ -2,6 +2,7 @@ package vn.edu.roomservice.room;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,9 +25,20 @@ import java.util.Map;
 public class RoomController {
 
     private final RoomService roomService;
+    private final String serviceId;
+    private final String instanceId;
+    private final String serverPort;
 
-    public RoomController(RoomService roomService) {
+    public RoomController(
+            RoomService roomService,
+            @Value("${spring.application.name}") String serviceId,
+            @Value("${eureka.instance.instance-id}") String instanceId,
+            @Value("${server.port}") String serverPort
+    ) {
         this.roomService = roomService;
+        this.serviceId = serviceId;
+        this.instanceId = instanceId;
+        this.serverPort = serverPort;
     }
 
     @GetMapping("/hello")
@@ -41,8 +53,25 @@ public class RoomController {
     @GetMapping("/info")
     @Operation(summary = "Xem thông tin Room Service")
     public Map<String, String> info() {
+        return providerIdentity();
+    }
+
+    /**
+     * Authenticated counterpart used by Reservation Service's TH7 discovery
+     * probe. The legacy public /info contract remains available above.
+     */
+    @GetMapping("/provider-info")
+    @Operation(summary = "Xem identity của Room provider instance đã xác thực")
+    public Map<String, String> providerInfo() {
+        return providerIdentity();
+    }
+
+    private Map<String, String> providerIdentity() {
         return Map.of(
                 "service", "Room Service",
+                "serviceId", serviceId,
+                "instanceId", instanceId,
+                "port", serverPort,
                 "version", "1.0",
                 "status", "UP"
         );

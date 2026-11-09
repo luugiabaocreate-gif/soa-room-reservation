@@ -1,0 +1,93 @@
+{
+  "info": {
+    "_postman_id": "02b3a1d1-e399-4f25-9b22-55a1c0c77a07",
+    "name": "TH7 Service Registry and Discovery",
+    "description": "Run requests individually. TH7-03 is the repeatable evidence request: call it at least 20 times after two ROOM-SERVICE instances are UP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "gatewayUrl", "value": "http://localhost:8088" },
+    { "key": "registryUrl", "value": "http://localhost:8761" },
+    { "key": "username", "value": "student01" },
+    { "key": "password", "value": "DemoPassword123!" },
+    { "key": "accessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "TH7-01 Registry dashboard is reachable",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{registryUrl}}/"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Registry dashboard returns 200', function () { pm.response.to.have.status(200); });"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "TH7-02 Login through API Gateway",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{gatewayUrl}}/api/v1/auth/login"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Gateway reaches Auth Service with HTTP 200', function () { pm.response.to.have.status(200); });",
+            "const body = pm.response.json();",
+            "pm.expect(body.accessToken).to.be.a('string').and.not.empty;",
+            "pm.collectionVariables.set('accessToken', body.accessToken);"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "TH7-03 Discovery probe — run individually 20 times",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{gatewayUrl}}/api/v1/discovery/room-provider"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Reservation resolves a ROOM-SERVICE instance', function () { pm.response.to.have.status(200); });",
+            "const body = pm.response.json();",
+            "pm.expect(body.serviceId).to.eql('ROOM-SERVICE');",
+            "pm.expect(body.instanceId).to.be.a('string').and.not.empty;",
+            "pm.expect(body.port).to.be.oneOf(['8080', '8084']);",
+            "console.log('TH7 serving instance:', body.instanceId, 'port:', body.port);"
+          ]
+        }
+      }]
+    },
+    {
+      "name": "TH7-04 Existing Reservation query through Gateway",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{gatewayUrl}}/api/v2/reservations?page=0&size=5&sort=startTime,asc"
+      },
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Existing Reservation contract remains available through Gateway', function () { pm.response.to.have.status(200); });"
+          ]
+        }
+      }]
+    }
+  ]
+}

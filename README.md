@@ -489,94 +489,74 @@ soa-room-reservation/
 
 ---
 
-# 11. Chạy local: quick start có kiểm soát
+# 11. Chạy toàn bộ dự án bằng một lệnh
 
-> Hướng dẫn thao tác đầy đủ cho người mới: [`docs/th5-operation-guide.md`](docs/th5-operation-guide.md) và file Word `HUONG_DAN_CHAY_DU_AN_TH1_DEN_TH5_FINAL.docx`.
+> Từ TH7, cách chạy mặc định không còn là mở năm terminal rồi chạy từng service. Backend chạy bằng Docker Compose, Web UI chạy Vite nền; launcher chỉ báo **PROJECT READY** khi health endpoint và Eureka đã xác nhận đầy đủ service cần thiết.
 
-## 11.1 Chọn đúng branch
+## 11.1 Chuẩn bị một lần trên mỗi máy
 
-```powershell
-Set-Location D:\soa-room-reservation
-git fetch origin --prune
-git switch feature/th5-auth-security
-git pull --ff-only
-git log -1 --oneline
-```
-
-Kỳ vọng commit `3966014`.
-
-## 11.2 Tạo `.env` và secret (một lần/máy)
+- Docker Desktop đang chạy, Node.js 18+ đã cài.
+- Tạo `.env` từ file mẫu và thay hai secret placeholder. Không commit `.env`.
 
 ```powershell
 Copy-Item .env.example .env
 notepad .env
 ```
 
-Thay `REPLACE_...` bằng Base64 JWT secret tối thiểu 32 byte và một service secret dài/ngẫu nhiên. **Không commit `.env`.**
+Nếu máy đã dùng các port PostgreSQL mặc định, đổi **host port** trong `.env` (ví dụ `ROOM_DB_PORT=5436`, `RESERVATION_DB_PORT=5437`). Docker service nội bộ vẫn dùng `room-db:5432` / `reservation-db:5432`, nên kiến trúc không thay đổi.
 
-## 11.3 Docker
+## 11.2 Một lệnh khởi động toàn bộ stack
 
-```powershell
-Set-Location D:\soa-room-reservation
-docker compose up -d
-docker compose ps
-```
-
-Chờ `soa-rabbitmq`, `soa-room-db`, `soa-reservation-db`, `soa-auth-db` đều `healthy`.
-
-## 11.4 Java services — mỗi service một PowerShell
+Tại thư mục root của repository:
 
 ```powershell
-# Chạy phần này đầu mỗi terminal Java
-Set-Location D:\soa-room-reservation
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-. .\scripts\Import-LocalEnv.ps1
+.\Start-Project.cmd
 ```
 
-Thứ tự runtime: **Auth → Room → Reservation → Audit → Web UI**.
+Launcher tự động:
 
-```powershell
-# Auth Service :8083
-Set-Location D:\soa-room-reservation\auth-service
-.\mvnw.cmd clean test
-.\mvnw.cmd spring-boot:run
+1. kiểm tra Docker Engine và `.env`/secret;
+2. build + khởi động Compose với `docker-compose.yml` và `docker-compose.th7.yml`;
+3. đợi Registry, Gateway, Auth, hai Room instance, Reservation và Audit trả health `200`;
+4. đợi Eureka có đủ 5 Service ID và hai `ROOM-SERVICE` instance;
+5. cài `web-ui/node_modules` nếu chưa có rồi chạy Vite nền tại `:5173`.
+
+Chỉ mở UI khi terminal in:
+
+```text
+PROJECT READY
 ```
 
-```powershell
-# Room Service :8080
-Set-Location D:\soa-room-reservation\room-service
-.\mvnw.cmd clean test
-.\mvnw.cmd spring-boot:run
-```
-
-```powershell
-# Reservation Service :8081
-Set-Location D:\soa-room-reservation\reservation-service
-.\mvnw.cmd clean test
-.\mvnw.cmd spring-boot:run
-```
-
-```powershell
-# Audit Service :8082
-Set-Location D:\soa-room-reservation\audit-service
-.\mvnw.cmd clean test
-.\mvnw.cmd spring-boot:run
-```
-
-```powershell
-# Web UI :5173 — dùng strict port vì CORS local allow origin này
-Set-Location D:\soa-room-reservation\web-ui
-npm ci
-npm run dev -- --port 5173 --strictPort
-```
-
-| Component | URL |
+| Thành phần | URL |
 |---|---|
 | Web UI | http://localhost:5173 |
-| Auth Swagger | http://localhost:8083/swagger-ui.html |
-| Room Swagger | http://localhost:8080/swagger-ui.html |
-| Reservation Swagger | http://localhost:8081/swagger-ui.html |
-| RabbitMQ UI | http://localhost:15672 (`soa` / `soa-local-dev`) |
+| API Gateway health | http://localhost:8088/actuator/health |
+| Eureka Dashboard | http://localhost:8761 |
+| RabbitMQ UI | http://localhost:15672 |
+
+Khi source backend không đổi và chỉ muốn start nhanh bằng image hiện có:
+
+```powershell
+.\Start-Project.cmd -SkipBuild
+```
+
+Khi chỉ cần backend, không mở Vite:
+
+```powershell
+.\Start-Project.cmd -NoWebUi
+```
+
+## 11.3 Một lệnh dừng toàn bộ stack
+
+```powershell
+.\Stop-Project.cmd
+```
+
+Lệnh này dừng Vite do launcher tạo và chạy Compose `down --remove-orphans`; **không dùng `-v`**, nên PostgreSQL/RabbitMQ volumes không bị xóa.
+
+## 11.4 Chạy từng service chỉ dành cho chẩn đoán
+
+Các lệnh `mvnw.cmd spring-boot:run` riêng lẻ vẫn hữu ích khi debug một service. Chúng không còn là quy trình khởi động thường ngày. Xem [`docs/th7-runbook.md`](docs/th7-runbook.md) khi cần chạy native/manual để quan sát riêng từng instance.
 
 ---
 

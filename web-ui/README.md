@@ -62,6 +62,16 @@ Browser chỉ gọi API Gateway. Reservation Service tìm Room/Auth bằng Servi
 
 ## Chạy UI
 
+Cách chạy toàn bộ dự án được khuyến nghị (Docker backend + Gateway + Vite UI) là từ root repository:
+
+```powershell
+.\Start-Project.cmd
+```
+
+Launcher chỉ báo `PROJECT READY` sau khi Eureka có đủ service cần thiết và UI đã trả HTTP thành công tại `http://localhost:5173`.
+
+Chỉ khi debug riêng UI mới chạy thủ công:
+
 ```powershell
 Set-Location D:\soa-room-reservation\web-ui
 npm install

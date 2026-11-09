@@ -138,4 +138,8 @@ public class ReservationEntity {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public void cancel() {
+        this.status = ReservationStatus.CANCELLED;
+    }
 }

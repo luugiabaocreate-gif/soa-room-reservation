@@ -51,6 +51,69 @@ public class RoomClient {
                     .body(RoomResponse.class);
         } catch (HttpClientErrorException.NotFound exception) {
             throw new RoomNotFoundException(roomId);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            throw new RoomServiceUnavailableException(roomId, exception);
+        }
+    }
+
+    /**
+     * Provider lookup used by Reservation Service's availability read model.
+     * The user JWT is never forwarded; this remains a machine-to-machine call.
+     */
+    @Retryable(
+            retryFor = {
+                    ResourceAccessException.class,
+                    HttpServerErrorException.class
+            },
+            maxAttemptsExpression = "${room.service.retry.max-attempts}",
+            backoff = @Backoff(
+                    delayExpression = "${room.service.retry.backoff-delay-ms}"
+            )
+    )
+    public RoomDirectoryPage findAvailableRooms(String roomType, Integer minimumCapacity) {
+        LOGGER.info(
+                "Calling Room Service directory for availability: type={}, minCapacity={}",
+                roomType,
+                minimumCapacity
+        );
+
+        try {
+            return roomRestClient.get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder
+                                .path("/api/v2/rooms")
+                                .queryParam("status", "AVAILABLE")
+                                .queryParam("minCapacity", minimumCapacity)
+                                .queryParam("page", 0)
+                                .queryParam("size", 50)
+                                .queryParam("sort", "code,asc");
+                        if (roomType != null) {
+                            builder.queryParam("type", roomType);
+                        }
+                        return builder.build();
+                    })
+                    .header("Authorization", "Bearer " + serviceTokenClient.roomServiceToken())
+                    .retrieve()
+                    .body(RoomDirectoryPage.class);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            throw new RoomServiceUnavailableException("lấy danh mục phòng phù hợp", exception);
+        }
+    }
+
+    /**
+     * Evidence endpoint for TH7. This request follows exactly the same
+     * discovery-enabled Room client as the business calls above, but returns
+     * only the provider instance identity so load distribution is observable.
+     */
+    public RoomProviderInstance discoverServingRoomInstance() {
+        try {
+            return roomRestClient.get()
+                    .uri("/api/v1/rooms/provider-info")
+                    .header("Authorization", "Bearer " + serviceTokenClient.roomServiceToken())
+                    .retrieve()
+                    .body(RoomProviderInstance.class);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            throw new RoomServiceUnavailableException("khám phá một Room Service instance", exception);
         }
     }
 
@@ -66,5 +129,21 @@ public class RoomClient {
         );
 
         throw new RoomServiceUnavailableException(roomId, exception);
+    }
+
+    @Recover
+    public RoomDirectoryPage recoverFromRoomDirectoryFailure(
+            RestClientException exception,
+            String roomType,
+            Integer minimumCapacity
+    ) {
+        LOGGER.error(
+                "Room Service directory remains unavailable after all retry attempts. type={}, minCapacity={}",
+                roomType,
+                minimumCapacity,
+                exception
+        );
+
+        throw new RoomServiceUnavailableException("lấy danh mục phòng phù hợp", exception);
     }
 }

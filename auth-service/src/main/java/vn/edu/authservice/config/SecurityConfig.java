@@ -49,6 +49,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/service-token",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
+                                "/actuator/health",
+                                "/actuator/info",
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .anyRequest().denyAll())

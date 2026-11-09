@@ -25,4 +25,23 @@ public interface ReservationRepository extends JpaRepository<ReservationEntity, 
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
+
+    /**
+     * Returns only external Room ids with an overlap. This lets the public
+     * availability API avoid exposing another requester's reservation details.
+     */
+    @Query("""
+            select distinct reservation.roomId
+            from ReservationEntity reservation
+            where reservation.roomId in :roomIds
+              and reservation.status = :status
+              and :startTime < reservation.endTime
+              and :endTime > reservation.startTime
+            """)
+    java.util.List<Long> findConflictingRoomIds(
+            @Param("roomIds") java.util.List<Long> roomIds,
+            @Param("status") ReservationStatus status,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
 }

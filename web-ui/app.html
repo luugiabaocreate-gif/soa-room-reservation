@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Campus Space Operations Application." />
+  <title>Campus Space — Operations</title>
+</head>
+<body class="app-body">
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand brand-light" href="#dashboard">
+        <span class="brand-mark">CS</span>
+        <span>Campus Space<small>OPERATIONS</small></span>
+      </a>
+      <div id="operations-mascot" class="operations-mascot idle" aria-hidden="true">
+        <span class="ops-antenna"></span>
+        <div class="ops-head"><span class="ops-eye"></span><span class="ops-eye"></span><span class="ops-mouth"></span></div>
+        <span class="ops-arm ops-arm-left"></span><span class="ops-arm ops-arm-right"></span>
+      </div>
+      <div class="mascot-whisper"><span class="mascot-led"></span><p id="assistant-line">Ready to coordinate campus space with you.</p></div>
+      <p class="sidebar-label">WORKSPACE</p>
+      <nav class="main-nav">
+        <button class="nav-item active" data-view-target="dashboard" type="button"><span>◈</span> Overview</button>
+        <button class="nav-item" data-view-target="booking" type="button"><span>＋</span> Find &amp; book a room</button>
+        <button class="nav-item student-only" data-view-target="reservations" type="button"><span>▤</span> My reservations</button>
+        <button class="nav-item manager-only" data-view-target="reservations" type="button"><span>▤</span> Reservation desk</button>
+        <button class="nav-item" data-view-target="rooms" type="button"><span>⌂</span> Room directory</button>
+        <button class="nav-item operator-only" data-view-target="room-operations" type="button"><span>▧</span> Room operations</button>
+      </nav>
+      <div class="sidebar-service-card">
+        <span class="service-pulse"></span>
+        <div><strong>Service boundaries</strong><p>UI calls APIs only; business rules always live in the backend.</p></div>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sidebar-avatar">U</div>
+        <div><strong id="sidebar-name">Loading</strong><p id="sidebar-role">—</p></div>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <header class="topbar">
+        <button id="mobile-menu-button" class="icon-button mobile-menu" type="button" aria-label="Open menu">☰</button>
+        <div class="breadcrumb"><span id="view-kicker">WORKSPACE</span><strong id="view-title">Overview</strong></div>
+        <div class="topbar-actions">
+          <span id="session-countdown" class="session-countdown" title="JWT time remaining">Checking session</span>
+          <div class="profile-chip"><span class="avatar small" id="topbar-avatar">U</span><span id="topbar-name">User</span></div>
+          <button id="logout-button" class="button quiet" type="button">Log out</button>
+        </div>
+      </header>
+
+      <div id="toast-region" class="toast-region" aria-live="polite"></div>
+
+      <section id="dashboard" class="view active-view" data-view>
+        <div class="view-hero">
+          <div><p class="eyebrow">LIVE OPERATIONS</p><h1 id="dashboard-greeting">Welcome back</h1><p id="dashboard-copy">Loading today’s operations picture.</p></div>
+          <button class="button primary" type="button" data-open-booking>Book a room <span>→</span></button>
+        </div>
+        <div id="dashboard-metrics" class="metric-grid" aria-live="polite"></div>
+        <div class="dashboard-grid">
+          <section class="surface activity-surface">
+            <div class="surface-heading"><div><p class="section-kicker">RESERVATION SERVICE</p><h2 id="dashboard-reservations-title">Recent reservations</h2></div><button class="text-button" data-view-target="reservations" type="button">View all →</button></div>
+            <div id="dashboard-reservations" class="compact-list"><div class="loading-block">Loading reservations…</div></div>
+          </section>
+          <section class="surface architecture-surface">
+            <p class="section-kicker">SERVICE FLOW</p><h2>How is a space confirmed?</h2>
+            <ol class="service-flow">
+              <li><span>01</span><div><strong>Browser → Reservation</strong><p>A user chooses room, time and purpose.</p></div></li>
+              <li><span>02</span><div><strong>Reservation → Room</strong><p>A machine JWT checks the Provider; the user token is never forwarded.</p></div></li>
+              <li><span>03</span><div><strong>Reservation → Audit</strong><p>After local commit, a lifecycle event is published asynchronously.</p></div></li>
+            </ol>
+          </section>
+        </div>
+      </section>
+
+      <section id="booking" class="view" data-view>
+        <div class="view-hero compact"><div><p class="eyebrow">RESERVATION CAPABILITY</p><h1>Find the right space</h1><p>Reservation Service combines Room Provider state with its own schedule without revealing another person’s booking details.</p></div></div>
+        <section class="surface search-surface">
+          <div class="step-label"><span>1</span><div><strong>Tell us what you need</strong><p>Choose the time window and the size of your session.</p></div></div>
+          <form id="availability-form" class="form-grid availability-form">
+            <label>Starts<input id="availability-from" name="from" type="datetime-local" required /></label>
+            <label>Ends<input id="availability-to" name="to" type="datetime-local" required /></label>
+            <label>Attendees<input id="availability-attendee-count" name="attendeeCount" type="number" min="1" required placeholder="e.g. 30" /></label>
+            <label>Room type<select id="availability-type" name="type"><option value="">Any room type</option><option value="THEORY">THEORY · Teaching</option><option value="LAB">LAB · Computing</option></select></label>
+            <div class="form-action-end"><button class="button primary" type="submit">Find matching rooms <span>→</span></button></div>
+          </form>
+        </section>
+        <section id="availability-results" class="hidden" aria-live="polite">
+          <div class="results-heading"><div><p class="section-kicker">AVAILABILITY API · RESERVATION SERVICE</p><h2 id="availability-summary">Results</h2><p id="availability-description"></p></div><span class="data-origin">Provider + schedule read model</span></div>
+          <div id="available-room-grid" class="room-card-grid"></div>
+        </section>
+        <section id="booking-confirmation" class="surface booking-confirmation hidden" aria-labelledby="booking-confirmation-title">
+          <div class="step-label"><span>2</span><div><strong id="booking-confirmation-title">Confirm reservation</strong><p id="selected-room-summary">No room selected yet.</p></div></div>
+          <form id="reservation-form" class="form-grid reservation-form">
+            <input id="selected-room-id" type="hidden" />
+            <label class="span-2">Purpose<input id="reservation-purpose" type="text" maxlength="300" required placeholder="e.g. Service-design project discussion" /></label>
+            <label>Attendees<input id="reservation-attendee-count" type="number" min="1" required readonly /></label>
+            <label>Requester ID<input id="reservation-requester-id" type="text" maxlength="100" required readonly /></label>
+            <label class="span-2">Requester name<input id="reservation-requester-name" type="text" maxlength="150" required readonly /></label>
+            <div class="booking-confirm-actions span-2"><button class="button secondary" id="change-room-button" type="button">Choose another room</button><button id="reservation-submit" class="button primary" type="submit">Confirm reservation <span>→</span></button></div>
+          </form>
+          <p class="form-helper">Final confirmation always happens in Reservation Service. A 409 can still occur if someone just booked the same slot.</p>
+        </section>
+      </section>
+
+      <section id="reservations" class="view" data-view>
+        <div class="view-hero compact"><div><p class="eyebrow">RESERVATION OWNERSHIP</p><h1 id="reservation-view-title">My reservations</h1><p id="reservation-view-copy">A Student sees only the data owned by their JWT identity.</p></div></div>
+        <section class="surface">
+          <form id="reservation-filter-form" class="filter-toolbar">
+            <label>Room<input id="reservation-filter-room-id" type="number" min="1" placeholder="Room ID" /></label>
+            <label>Status<select id="reservation-filter-status"><option value="">Any status</option><option value="CONFIRMED">CONFIRMED</option><option value="CANCELLED">CANCELLED</option></select></label>
+            <label>From<input id="reservation-filter-from" type="datetime-local" /></label>
+            <label>To<input id="reservation-filter-to" type="datetime-local" /></label>
+            <div class="form-action-end"><button class="button primary" type="submit">Apply filters</button><button id="reset-reservation-filter" class="button quiet" type="button">Reset</button></div>
+          </form>
+          <div id="reservation-table-wrap" class="data-table-wrap"></div>
+          <div class="pagination"><button id="reservation-previous" class="button quiet" type="button">← Previous</button><span id="reservation-page-info">—</span><button id="reservation-next" class="button quiet" type="button">Next →</button></div>
+        </section>
+      </section>
+
+      <section id="rooms" class="view" data-view>
+        <div class="view-hero compact"><div><p class="eyebrow">ROOM SERVICE CATALOG</p><h1>Space directory</h1><p>Room information and operational state are always owned by Room Service.</p></div></div>
+        <section class="surface">
+          <form id="room-filter-form" class="filter-toolbar">
+            <label>Search<input id="room-keyword" type="search" placeholder="Room code or building" /></label>
+            <label>Status<select id="room-status"><option value="">Any status</option><option value="AVAILABLE">AVAILABLE</option><option value="MAINTENANCE">MAINTENANCE</option><option value="LOCKED">LOCKED</option><option value="OUT_OF_SERVICE">OUT_OF_SERVICE</option></select></label>
+            <label>Type<select id="room-type"><option value="">Any type</option><option value="THEORY">THEORY</option><option value="LAB">LAB</option></select></label>
+            <label>Minimum capacity<input id="room-min-capacity" type="number" min="1" placeholder="e.g. 30" /></label>
+            <div class="form-action-end"><button class="button primary" type="submit">Filter rooms</button><button id="reset-room-filter" class="button quiet" type="button">Reset</button></div>
+          </form>
+          <div id="room-directory-grid" class="room-card-grid directory-grid"><div class="loading-block">Loading Room Service…</div></div>
+          <div class="pagination"><button id="room-previous" class="button quiet" type="button">← Previous</button><span id="room-page-info">—</span><button id="room-next" class="button quiet" type="button">Next →</button></div>
+        </section>
+      </section>
+
+      <section id="room-operations" class="view" data-view>
+        <div class="view-hero compact"><div><p class="eyebrow">ROOM MANAGER / ADMIN</p><h1>Run space operations</h1><p>Create, edit and change room state through Room Service. The UI never writes to room_db directly.</p></div></div>
+        <div class="operations-grid">
+          <section class="surface">
+            <div class="surface-heading"><div><p class="section-kicker">ROOM COMMAND</p><h2 id="room-form-title">Create a room</h2></div><button id="clear-room-form" class="text-button" type="button">New form</button></div>
+            <form id="room-operation-form" class="form-grid room-operation-form">
+              <input id="operation-room-id" type="hidden" />
+              <label>Room code<input id="operation-room-code" required maxlength="50" placeholder="e.g. D201" /></label>
+              <label>Building<input id="operation-room-building" required maxlength="100" placeholder="e.g. D" /></label>
+              <label>Floor<input id="operation-room-floor" type="number" min="0" required /></label>
+              <label>Type<select id="operation-room-type" required><option value="THEORY">THEORY</option><option value="LAB">LAB</option></select></label>
+              <label>Capacity<input id="operation-room-capacity" type="number" min="1" required /></label>
+              <label>Status<select id="operation-room-status" required><option value="AVAILABLE">AVAILABLE</option><option value="MAINTENANCE">MAINTENANCE</option><option value="LOCKED">LOCKED</option><option value="OUT_OF_SERVICE">OUT_OF_SERVICE</option></select></label>
+              <label>Total computers<input id="operation-total-computers" type="number" min="0" required value="0" /></label>
+              <label>Working computers<input id="operation-working-computers" type="number" min="0" required value="0" /></label>
+              <label>Broken computers<input id="operation-broken-computers" type="number" min="0" required value="0" /></label>
+              <div class="form-action-end span-2"><button id="room-operation-submit" class="button primary" type="submit">Save changes <span>→</span></button></div>
+            </form>
+          </section>
+          <section class="surface operation-list-surface">
+            <div class="surface-heading"><div><p class="section-kicker">LIVE ROOM INVENTORY</p><h2>Pick a room to edit</h2></div><span id="operation-room-count" class="data-origin">—</span></div>
+            <div id="operation-room-list" class="operation-room-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/src/app.js"></script>
+</body>
+</html>

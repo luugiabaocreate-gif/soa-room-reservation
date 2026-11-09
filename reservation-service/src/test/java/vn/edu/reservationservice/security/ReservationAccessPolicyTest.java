@@ -6,7 +6,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import vn.edu.reservationservice.reservation.Reservation;
 import vn.edu.reservationservice.reservation.ReservationRequest;
+import vn.edu.reservationservice.reservation.ReservationStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,6 +61,38 @@ class ReservationAccessPolicyTest {
 
         assertThrows(AccessDeniedException.class,
                 () -> policy.enforceCreateOwnership(requestFor("STUDENT-002", "Student Two")));
+    }
+
+    @Test
+    void studentCancel_isAllowedOnlyForOwnReservation() {
+        authenticate("student01", "STUDENT-001", "Student One", "STUDENT");
+
+        policy.assertCanCancel(reservationFor("STUDENT-001"));
+
+        assertThrows(AccessDeniedException.class,
+                () -> policy.assertCanCancel(reservationFor("STUDENT-002")));
+    }
+
+    @Test
+    void adminCancel_isAllowedForAnyReservation() {
+        authenticate("admin01", null, "System Administrator", "ADMIN");
+
+        policy.assertCanCancel(reservationFor("STUDENT-002"));
+    }
+
+    private Reservation reservationFor(String requesterId) {
+        return new Reservation(
+                99L,
+                2L,
+                "A301",
+                requesterId,
+                "Test Student",
+                "Cancellation policy test",
+                LocalDateTime.of(2026, 12, 10, 9, 0),
+                LocalDateTime.of(2026, 12, 10, 10, 0),
+                20,
+                ReservationStatus.CONFIRMED
+        );
     }
 
     private void authenticate(String username, String requesterId, String displayName, String role) {

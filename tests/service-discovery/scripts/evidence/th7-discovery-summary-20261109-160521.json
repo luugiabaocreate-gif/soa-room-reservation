@@ -1,0 +1,22 @@
+﻿{
+    "runAt":  "2026-11-09T16:05:21.4494082+07:00",
+    "gatewayUrl":  "http://localhost:8088",
+    "requestedCalls":  20,
+    "successfulCalls":  20,
+    "failedCalls":  0,
+    "minimumDistinctInstances":  2,
+    "distinctInstancesObserved":  2,
+    "distribution":  [
+                         {
+                             "instanceId":  "ROOM-SERVICE:room-1",
+                             "port":  "8080",
+                             "hits":  10
+                         },
+                         {
+                             "instanceId":  "ROOM-SERVICE:room-2",
+                             "port":  "8084",
+                             "hits":  10
+                         }
+                     ],
+    "rawEvidenceCsv":  "D:\\soa-room-reservation\\tests\\service-discovery\\scripts\\evidence\\th7-discovery-20261109-160521.csv"
+}

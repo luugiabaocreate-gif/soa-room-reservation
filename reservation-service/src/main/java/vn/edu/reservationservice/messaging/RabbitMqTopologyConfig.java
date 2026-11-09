@@ -9,6 +9,7 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -23,6 +24,7 @@ public class RabbitMqTopologyConfig {
     public static final String RESERVATION_EVENTS_EXCHANGE = "reservation.events";
     public static final String RESERVATION_AUDIT_QUEUE = "reservation.audit.queue";
     public static final String RESERVATION_CONFIRMED_ROUTING_KEY = "reservation.confirmed";
+    public static final String RESERVATION_CANCELLED_ROUTING_KEY = "reservation.cancelled";
 
     @Bean
     public TopicExchange reservationEventsExchange() {
@@ -46,6 +48,17 @@ public class RabbitMqTopologyConfig {
     }
 
     @Bean
+    public Binding reservationCancelledAuditBinding(
+            Queue reservationAuditQueue,
+            TopicExchange reservationEventsExchange
+    ) {
+        return BindingBuilder
+                .bind(reservationAuditQueue)
+                .to(reservationEventsExchange)
+                .with(RESERVATION_CANCELLED_ROUTING_KEY);
+    }
+
+    @Bean
     public MessageConverter rabbitMessageConverter() {
         return new JacksonJsonMessageConverter("vn.edu.reservationservice.messaging");
     }
@@ -61,12 +74,14 @@ public class RabbitMqTopologyConfig {
             AmqpAdmin amqpAdmin,
             TopicExchange reservationEventsExchange,
             Queue reservationAuditQueue,
-            Binding reservationConfirmedAuditBinding
+            @Qualifier("reservationConfirmedAuditBinding") Binding reservationConfirmedAuditBinding,
+            @Qualifier("reservationCancelledAuditBinding") Binding reservationCancelledAuditBinding
     ) {
         return (ApplicationArguments arguments) -> {
             amqpAdmin.declareExchange(reservationEventsExchange);
             amqpAdmin.declareQueue(reservationAuditQueue);
             amqpAdmin.declareBinding(reservationConfirmedAuditBinding);
+            amqpAdmin.declareBinding(reservationCancelledAuditBinding);
 
             LOGGER.info(
                     "RabbitMQ topology declared: exchange={}, queue={}, routingKey={}",

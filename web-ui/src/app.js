@@ -443,17 +443,26 @@ function canCancel(reservation) {
 
 function renderReservations(page) {
   const reservations = page.content ?? [];
+  // ROOM_MANAGER has read access but no cancellation capability. Do not render
+  // a ghost action column or meaningless em dashes for that workspace.
+  const showActions = isStudent() || isAdmin();
+
   if (!reservations.length) {
     elements.reservationTable.innerHTML = '<div class="empty-state">No Reservations match the current filter.</div>';
   } else {
-    elements.reservationTable.innerHTML = `<table><thead><tr><th>Reservation</th><th>Time</th><th>Requester</th><th>Size</th><th>Status</th><th></th></tr></thead><tbody>${reservations.map((reservation) => `
+    elements.reservationTable.innerHTML = `<table><thead><tr>
+      <th>Reservation</th><th>Time</th><th>Requester</th><th>Size</th><th>Status</th>
+      ${showActions ? '<th class="table-action-heading">Action</th>' : ''}
+    </tr></thead><tbody>${reservations.map((reservation) => `
       <tr>
         <td><strong>${escapeHtml(reservation.roomCode)}</strong><small>#${escapeHtml(reservation.id)} · ${escapeHtml(reservation.purpose)}</small></td>
         <td>${escapeHtml(formatDateTime(reservation.startTime))}<small>to ${escapeHtml(formatDateTime(reservation.endTime))}</small></td>
         <td>${escapeHtml(reservation.requesterName)}<small>${escapeHtml(reservation.requesterId)}</small></td>
         <td>${escapeHtml(reservation.attendeeCount)} people</td>
         <td>${statusPill(reservation.status)}</td>
-        <td>${canCancel(reservation) ? `<button class="text-button cancel-reservation" data-reservation-id="${escapeHtml(reservation.id)}" type="button">Cancel</button>` : '—'}</td>
+        ${showActions ? `<td class="table-action-cell">${canCancel(reservation)
+          ? `<button class="text-button cancel-reservation" data-reservation-id="${escapeHtml(reservation.id)}" type="button">Cancel</button>`
+          : '<span class="action-unavailable">—</span>'}</td>` : ''}
       </tr>`).join('')}</tbody></table>`;
     $$('.cancel-reservation').forEach((button) => button.addEventListener('click', () => cancelReservation(button.dataset.reservationId)));
   }
